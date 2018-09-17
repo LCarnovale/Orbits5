@@ -1,0 +1,85 @@
+\documentclass{report}
+
+
+\usepackage{physics}
+\usepackage{tikz}
+\usepackage{amsmath, graphicx, xspace}
+\usepackage{amssymb, amsthm}
+\usepackage{enumitem}
+\usepackage{siunitx}
+
+
+\title{Orbits 5: A Graphical N-body Gravitational Simulator}
+\author{Leonardo Carnovale}
+
+\begin{document}
+  \maketitle
+
+  \tableofcontents
+  \chapter{Simulator and Graphics API}
+    \section{Relationship between simulator and API}
+      The graphical display should not be a design specific to the
+      operation of the simulator, so as to allow significant improvement
+      and modification in future versions. This is to say that the
+      simulator and the graphics API should operate independently, and
+      communication or interaction should mainly be from the simulator to the camera,
+      then to the API. The simulator will need to prioritise simulation, and spend all
+      its time on this task. It should not try to optimize output for the API,
+      this can be done within the API.
+
+    \section{Function of the Simulator}
+      The job of the simulator is simply to calculate the position of all objects
+      after a time step interval. The main program will be frequently interacting with it.
+      The simulator should have the following methods:
+      \begin{itemize}
+        \item Add an object to the simulation.
+        \item Remove an object from the simulation.
+        \item Change the default time step interval.
+        \item Perform a step.
+        \item Perform $n$ steps.
+      \end{itemize}
+      There are multiple ways to perform this simulation, and the current preference
+      is the leapfrog method. Other methods should be available to be chosen at creation of
+      the simulator object.
+
+      The above methods will likely not need to have a return value. All information about the
+      simulator such as the current time step, number of particles, or the information about a
+      particular particle, should be available via additional `get' methods.
+    \section{Function of the API}
+      The API must have the following functionality as a minimum:
+      \begin{itemize}
+        \item Display a coloured pixel at a given point.
+        \item Display a coloured circle or ellipse at a given location, filled or unfilled.
+        \item Display a coloured regular or irregular polygon at a given location, filled or unfilled.
+        \item Display coloured text at any position.
+        \item Change the colour of the background/canvas.
+        \item Clear the screen of all drawings instantly.
+      \end{itemize}
+      An extra `bonus' feature would be to save the image drawn to file.
+      Graphics were achieved in previous versions using Python's Turtle library. This was very effective
+      for small simple simulations. However, when displaying flares on stares or when drawing lots of particles
+      the performance drops rapidly. Ideally, an additional API such as OpenGL should be used.
+
+      The picture to be drawn by the API will be provided by the camera. Like the simulator, the camera should
+      only have to do the bare mininum work before handing over to the graphics API. The only information provided
+      to the api from the camera will be:
+      \begin{itemize}
+        \item Type of shape.
+        \item Screen position of shape.
+        \item Shape parameters. (If required)
+        \item Shape fill options. (If required)
+      \end{itemize}
+      Potentially, the brightness or light intensity of the object will also be given.
+
+  \chapter{Simulation Algorithms}
+    \section{dunno}
+
+
+
+
+
+
+
+
+
+\end{document}
