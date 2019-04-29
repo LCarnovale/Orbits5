@@ -1,10 +1,11 @@
 from vector import vector, randomVector
 from math import *
 import random
+import numpy as np
 
 particleList  = []
-staticList    = []
-nonStaticList = []
+# staticList    = []
+# nonStaticList = []
 
 markerList   = []
 
@@ -20,7 +21,7 @@ G = 1
 
 TestMode = False
 
-class particle:
+class Particle:
 	def __init__(
 				self, mass, position, velocity=0, acceleration=0,
 				density=defaultDensity, autoColour=True, colour=[0, 0, 1],
@@ -141,7 +142,7 @@ class particle:
 		# print("Respawning to: {}".format([self.pos.elements[0], self.pos.elements[1], self.pos.elements[2]]))
 
 	def die(self, killer=None):
-		print("%s dying to %s" % (self.name, killer.name))		
+		print("%s dying to %s" % (self.name, killer.name))
 		if self.respawn:
 			# if CAMERA_UNTRACK_IF_DIE and camera.panTrack == self:
 			# 	camera.panTrackSet(killer)

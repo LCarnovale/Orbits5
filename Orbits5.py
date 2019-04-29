@@ -6,7 +6,7 @@ vector = VECTOR.vector()
 randomVector = VECTOR.randomVector
 
 class Item:
-	def __init__(self, position = )
+	def __init__(self, position = None)
 
 class MainLoop:
 	def __init__(self, items = []):

@@ -1,7 +1,7 @@
 from math import *
 import random
 
-class vector:
+class Vector:
 	def __init__(self, elements, unit=False):
 		self.elements 	= elements
 		self.dim 		= len(elements)
