@@ -1,9 +1,66 @@
+# A list of force functions for use by sim.py
+# All force functions should take exactly 1 argument, 'sys'
+# They should return an array of force vectors for all
+# particles in sys.
+
 import numpy as np
-# import sim
-# System = sim.System
 from sim import System
 
-G_GRAVITATIONAL_CONSTANT = 1
+class FunctionError(Exception):
+    def __init__(self, msg):
+        super().__init__(msg)
+
+
+GRAVITATIONAL_CONSTANT = 1
+
+def circularise(sys, A, B, f_func, axis):
+    """
+    A, B must be scalars!
+    Requires mass
+    Generic circularising function
+    Sets A to be in a circular orbit around B, by setting
+    an angular velocity for A aligned with 'axis' to match
+    an attractive force with centripetal force.
+
+    Conserves momentum of CoM
+    """
+    if np.any(sys.mass==None):
+        raise FunctionError("Particles in 'sys' must have mass")
+    if not (np.isscalar(A) and np.isscalar(B)):
+        raise FunctionError("A and B must be scalars")
+    new_sys = sys[[A, B]] # Isolate the two particles
+    # if np.any(new_sys.mass) and np.any(new_sys.vel):
+    pA, pB = new_sys.pos[0], new_sys.pos[1]
+    BA_vec = pA - pB
+    dist = np.linalg.norm(BA_vec, 2)
+    mA = new_sys.mass[0]; mB = new_sys.mass[1]
+    vA = new_sys.vel[0];  vB = new_sys.vel[1]
+    rMass = mA*mB / (mA + mB)
+    CoM = (mA*pA + mB*pB)/(mA + mB)
+    rA = pA - CoM
+    rB = pB - CoM
+    dA = np.linalg.norm(rA, 2)
+    dB = np.linalg.norm(rB, 2)
+
+
+    F = f_func(new_sys)
+    F = np.linalg.norm(F, 2, axis=-1)
+    fA = F[0] #/ rMass
+    fB = F[1] #/ rMass
+
+    vA_new =  np.sqrt(fA * dA / mA) / rMass
+    vB_new =  np.sqrt(fB * dB / mB) / rMass
+    # vB_new = np.sqrt(fB * dist * (mA + mB) / mB)
+
+    direction = np.cross(axis, BA_vec) / np.linalg.norm(axis, 2)
+    vA_new =  vA_new * direction
+    vB_new = -vB_new * direction
+
+    vCoM = (mA*vA + mB*vB) / (mA + mB)
+    vA_new += vCoM
+    vB_new += vCoM
+    sys.set_vel([A,B], [vA_new, vB_new])
+
 
 def GravityNewtonian(sys):
     """
@@ -13,16 +70,15 @@ def GravityNewtonian(sys):
 
     Returns Force
     """
-    G = G_GRAVITATIONAL_CONSTANT
+    G = GRAVITATIONAL_CONSTANT
 
     ### Calculate a tensor for r:
     # Tile the pos array:
     POS_ALL = np.tile(sys.pos, (sys.N, 1, 1))
     POS_S = np.tile(sys.pos, (1, 1, sys.N)).reshape(POS_ALL.shape)
 
-    D = POS_S - POS_ALL # r
-    D2 = D**2 # r^2
-    D2 = np.sum(D2, axis=-1) # D2 is now an N x N grid of distances (with 0 on diagonals)
+    D = POS_S - POS_ALL # r vector
+    D2 = np.linalg.norm(D, 2, axis=-1) # D2 is now an N x N grid of distances (with 0 on diagonals)
     M = sys.mass.reshape(1, -1)
     M_PROD = np.matmul(M.transpose(), M)
 
@@ -36,6 +92,7 @@ def GravityNewtonian(sys):
     F_VEC = F3 * D_norm # Now contains force vectors, F_VEC[i][j] = force between i and j
     F_NET = -np.sum(F_VEC, axis=1)
     return F_NET
+
 
 if __name__ == '__main__':
     # main()
