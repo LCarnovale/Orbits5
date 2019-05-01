@@ -248,27 +248,36 @@ class System:
             Should return 1 if B is to be killed, or -1 if A is to be killed.
             The function will be given the system, and the indexes of A and B.
             *** A and B may be 1D arrays
-        kill_func(sys, A, B) -> None
+        kill_func(sys, A, B) -> -1 or particle index
             Should make any desired modifications
             (such as changing mass, velocity, etc.) to A, as a result
             a of 'killing' B. ie, A is the survivor of the collision between
             A and B.
+            *** If B is to be actually killed / inactivated, the function should return B
 
         Returns the number of particles 'deactivated'.
         """
         collisions = self.get_collisions()
         if not collisions.any(): return 0
+        print(collisions)
         r = test(self, collisions[:,0], collisions[:,1])
         mask = np.array([r < 0, r > 0]).transpose()
         idx_array = collisions[mask]
         A = collisions[np.invert(mask)]
         B = collisions[mask]
+        kill_list = np.full(len(A), -1)
         if DELETE_FORCE_LOOP:
-            for a, b in zip(A, B):
-                kill_func(self, a, b)
+            # A = self.active_map[A]
+            # B = self.active_map[B]
+            # _ = self.set_active_mask(False)
+            for i, (a, b) in enumerate(zip(A, B)):
+                # a = self.active_map[a]
+                # b = self.active_map[b]
+                kill_list[i] = kill_func(self, a, b)
+            # self.set_active_mask(_)
         else:
-            kill_func(self, A, B)
-        self.kill_particle(idx_array)
+            kill_list = kill_func(self, A, B)
+        self.kill_particle(kill_list[kill_list>=0])
         return len(idx_array)
 
     def remove_dead(self):
@@ -299,13 +308,13 @@ class System:
         # v[indexes] = values
 
     def set_mass(self, indexes, values):
-        indexes = self.active_map[indexes]
+        # indexes = self.active_map[indexes]
         _m = self._mass
         _m[indexes] = values
         np.copyto(self._mass, _m)
 
     def set_radius(self, indexes, values):
-        indexes = self.active_map[indexes]
+        # indexes = self.active_map[indexes]
         _r = self.radius
         _r[indexes] = values
         np.copyto(self.radius, _r)
@@ -463,16 +472,24 @@ def kill_conserve_mass_momentum(sys, A, B):
     v_new = net_p / (mA_d + mB_d)
     CoM = (pA * mA_d + pB * mB_d) / (mA_d + mB_d)
 
+    # Get initial density:
+    init_density_inverse = (4/3 * np.pi * sys.radius[A]**3) / mA
+    new_radius = init_density_inverse * m_new
+    new_radius = (new_radius * 3/4 / np.pi)**(1/3)
+
     sys.set_pos(A, CoM)
     sys.set_vel(A, v_new)
     sys.set_mass(A, m_new)
+    sys.set_radius(A, new_radius)
+
 
     if not (sys.mass[A] == m_new).all() and not warning_flag:
         print("Warning: simultaneous collisions involving a single particle may be occuring.")
         print("These collisions may result in unexpected behaviour.")
         print("Turn on the DELETE_FORCE_LOOP option to avoid this.")
         warning_flag = True
-    return sys
+    return B# sys.kill_particle(B)
+    # return sys
 
 DEFAULT_KILL = kill_conserve_mass_momentum
 
@@ -485,20 +502,33 @@ class Buffer:
     def __init__(self, buffer_dict):
         self._dict = buffer_dict
 
-    def __getitem__(self, slice):
-        if slice in self._dict:
-            return self._dict[slice]
-        else:
+    def __getitem__(self, s):
+        if type(s) in [int, slice]:
             out = {}
             for k in self._dict:
-                out[k] = self._dict[k][slice]
+                out[k] = self._dict[k][s]
             return Buffer(out)
-
-
+        elif s in self._dict:
+            return self._dict[s]
+        else:
+            raise KeyError
 
     def __len__(self):
         l = len(next(iter(self._dict.values())))
         return l
+
+    def pull(self):
+        """
+        Return the first frame and delete it.
+        """
+        if len(self) == 0:
+            return None
+        f = self[0].copy()
+        self = self[1:]
+        return f
+
+    def copy(self):
+        return Buffer(self._dict.copy())
 
     @property
     def size(self):
@@ -530,6 +560,7 @@ class Simulation:
         self._test_func = test_func
         self._init_func = init_func
         self._kill_func = kill_func
+        self._pause = False
 
 
     def buffer(self, n, t_step=None, buffer_attrs=None):
@@ -563,13 +594,17 @@ class Simulation:
                 #     mask = self._sys.active
                 # else:
                 #     mask = slice(None) # index full array
-                np.copyto(output[attr][i], self._sys.__getattr__(attr))
+                if attr != 'active':
+                    mask = self._sys.get_mask
+                else:
+                    mask = slice(None)
+                np.copyto(output[attr][i][mask], self._sys.__getattr__(attr))
 
 
         for i in range(n):
-            self._sys.set_active_mask(False)
+            # self._sys.set_active_mask(False)
             fill_vals(i)
-            self._sys.set_active_mask(True)
+            # self._sys.set_active_mask(True)
             self.step(t_step)
             self.step_collisions()
 
@@ -580,8 +615,14 @@ class Simulation:
 
     def step(self, t_step = None, n=1):
         """
+        If the sim is not paused,
         Calls self.func and performs a step.
         """
+        if self._camera:
+            self._camera.step(t_step)
+
+        if self._pause: return
+
         if t_step is None:
             t_step = self._t_step
 
@@ -591,14 +632,24 @@ class Simulation:
             self._sys.vel = self._sys.vel + t_step * A
             self._sys.pos = self._sys.pos + t_step * self._sys.vel
 
-        if self._camera:
-            self._camera.step(t_step)
 
     def step_collisions(self):
         """
         Checks for collisions and kills particles based on the assigned test_func.
         """
         self._sys.kill_collisions(self._test_func, self._kill_func)
+
+    def pause(self, on_off=None):
+        """
+        Toggle (default action) or set the pause option for the simulation.
+        When paused, no force functions are called, and calling step()
+        makes no changes to the system.
+        """
+
+        if on_off == None:
+            self._pause = not self._pause
+        else:
+            self._pause = on_off
 
 
     @property
@@ -625,14 +676,14 @@ def big_buffer(N=100, frames=100, show=False):
         gfunc
     except:
         from physics_functions import GravityNewtonian as gfunc
-    c =       np.array([[np.cos(x)*10+np.random.normal(), np.sin(x)*10+np.random.normal(), 0.5*np.random.normal()] for x in np.linspace(0, 2*np.pi, N, False)])
-    v = 50 * np.array([[np.sin(x)*5+np.random.normal(),-np.cos(x)*5+np.random.normal(), np.random.normal()] for x in np.linspace(0, 2*np.pi, N, False)])
+    c =      np.array([[np.cos(x)*10+np.random.normal(), np.sin(x)*10+np.random.normal(), 0.5*np.random.normal()] for x in np.linspace(0, 2*np.pi, N, False)])
+    v = 30 * np.array([[np.sin(x)*5+np.random.normal(),-np.cos(x)*5+np.random.normal(), np.random.normal()] for x in np.linspace(0, 2*np.pi, N, False)])
     p = np.random.random((N, 3)) * 10
     # v = np.random.random((N, 3))
     r = np.ones(N) * 1e-1
     m = (1 + np.random.random(N)) * 10
     Sys = System(c, v, m, r)
-    Sim = Simulation(Sys, gfunc, t_step=0.001)
+    Sim = Simulation(Sys, gfunc, t_step=0.0005)
     print("Buffering...")
     d = Sim.buffer(frames)
     print("Done.")
@@ -651,7 +702,7 @@ def big_buffer(N=100, frames=100, show=False):
         plt.ylim(-20, 20)
         ax.set_zlim(-20, 20)
         plt.show()
-    return d
+    return d, Sim
 
 def solar_system_sample():
     try:
@@ -667,7 +718,7 @@ def solar_system_sample():
     r  = np.array([1, 0.2, 0.01, 1])[S]
     m = np.array([100, 10, 1, 0.2])[S]
     Sys = System(np.array([p1, p2, p3, p4])[S], velocity=0.0, mass=m, radius=r)
-    Sim = Simulation(Sys, gfunc, t_step=0.0005)
+    Sim = Simulation(Sys, gfunc, t_step=0.005)
 
     from physics_functions import circularise
     circularise(Sys, 1, 0, Sim.func, [0, 0, 1])

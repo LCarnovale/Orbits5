@@ -43,7 +43,7 @@ args = {#   [<type>   \/	 <Req.Pmtr>  <Def.Pmtr>
 "-vv" :     [float, False,	False,  1], # Draw velocity vectors
 "-ds" :     [str,	False,	False,  True], # Draw stars, ie, make the minimum size 1 pixel, regardless of distance.
 "-sdp":     [int,   5,		True], # Smart draw parameter, equivalent to the number of pixels per edge on a shape
-"-me" :     [int,   400,	True], # Max number of edges drawn
+"-me" :     [int,   80,	True], # Max number of edges drawn
 "-ab" :     [int,   False,	False,  20], # Make asteroid belt (Wouldn't recommend on presets other than 3..)
 "-es" :     [int,	False,	False,  5], # Make earth satellites
 "-WB" :     [str,   False,	False,	True], # Write buffer to file

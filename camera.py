@@ -48,10 +48,10 @@ class Camera:
             look: sys.dim length array for the direction the camera
                  is currently pointin.
         """
-        default_Nd = np.zeros(sys.pos[0].shape)
 
         if sys.dim != 3:
             raise CameraError("This camera class only supports 3D systems.")
+        default_Nd = np.zeros(3, dtype=float)
         self._sys = sys
         if np.any(pos == None):
             pos = default_Nd.copy()
@@ -80,7 +80,7 @@ class Camera:
 
         self._pos = pos
         self._vel = vel
-        self._rot = rot; self._prev_rot = rot
+        self._rot = rot; self._prev_rot = rot.copy()
         self._screen_depth = screen_depth
         self._look = look
 
@@ -104,9 +104,12 @@ class Camera:
         elif np.any(new_X):
             self._screen_X_axis = new_X
             self._screen_Y_axis = np.cross(new_X, self._look)
+            self._screen_X_axis = np.cross(self._look, self._screen_Y_axis)
         elif np.any(new_Y):
             self._screen_Y_axis = new_Y
             self._screen_X_axis = np.cross(self._look, new_Y)
+            self._screen_Y_axis = np.cross(self._screen_X_axis, self._look)
+
         self._screen_X_axis = self.screen_X_axis_norm
         self._screen_Y_axis = self.screen_Y_axis_norm
 
@@ -184,15 +187,43 @@ class Camera:
 
 
 
+    def look_at(self, point, sys=None):
+        """
+        point: index in sys or self.sys (if sys not given),
+            or an array of length 3.
+        """
+        if np.isscalar(point):
+            # point is an index
+            if sys == None:
+                sys = self.sys
+
+            pos = sys.pos[point]
+
+            self.look = pos - self._pos
+        else:
+            self.look = point - self._pos
+        self.set_X_Y_axes(new_Y = self.screen_Y_axis_norm)
+
     def step(self, t_step):
-        self._pos  += t_step * self._vel
+        self._pos += t_step * self._vel
         if np.any(self._rot):
+            # # Use weird experimental but cheap rotation method:
+            # shift = np.cross(self._rot, self._look)
+            # self._look += shift
+            # self._look /= math.sqrt(np.dot(self._look, self._look))
+
             angle = np.linalg.norm(self._rot, 2)
-            if np.any(self._rot != self._prev_rot):
+            if np.any(self._rot != self._prev_rot) or True:
                 self._prev_rot = self._rot.copy()
                 self._rot_mat = rotation_matrix(self._rot)
 
-            self._rot = np.dot(self._rot_mat, self._rot)
+            self._look = np.dot(self._rot_mat, self._look)
+            self._screen_X_axis = np.dot(self._rot_mat, self._screen_X_axis)
+            self._screen_Y_axis = np.dot(self._rot_mat, self._screen_Y_axis)
+            # self.set_X_Y_axes(self._screen_Y_axis)
+            # print("screen_Y_axis:", self._screen_Y_axis)
+            # print("screen_X_axis:", self._screen_X_axis)
+
 
 
     def look():
@@ -217,6 +248,28 @@ class Camera:
         return locals()
     pos = property(**pos())
 
+    def vel():
+        doc = "The vel property."
+        def fget(self):
+            return self._vel
+        def fset(self, value):
+            self._vel = value
+        def fdel(self):
+            del self._vel
+        return locals()
+    vel = property(**vel())
+
+    def rot():
+        doc = "The rot property."
+        def fget(self):
+            return self._rot
+        def fset(self, value):
+            self._rot = value
+        def fdel(self):
+            del self._rot
+        return locals()
+    rot = property(**rot())
+
     @property
     def screen_X_axis_norm(self):
         return self._screen_X_axis / math.sqrt(np.dot(self._screen_X_axis, self._screen_X_axis))
@@ -227,6 +280,20 @@ class Camera:
     @property
     def sys(self):
         return self._sys
+
+    def look():
+        doc = "The look property."
+        def fget(self):
+            return self._look
+        def fset(self, value):
+            d = math.sqrt(np.dot(value, value))
+            if d != 1:
+                value /= d
+            self._look = value
+        def fdel(self):
+            del self._look
+        return locals()
+    look = property(**look())
 
     @property
     def mass(self):
