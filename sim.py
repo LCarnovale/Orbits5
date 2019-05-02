@@ -767,11 +767,11 @@ def small_galaxy(N=1000):
         from physics_functions import GravityNewtonian as gfunc
     p = np.random.normal(scale=(10., 10., .2), size=(N, 3))
     r = np.linalg.norm(p, 2, axis=-1)
-    a = 2; b = 1 # Constants, can be changed to try different rotation curve
-    speed = 200/(a*r + b) * np.log(a*r + b)
+    a = 30; b = 1 # Constants, can be changed to try different rotation curve
+    speed = 100*a/(a*r + b) * np.log(a*r + b)
     v = speed.reshape(-1, 1) * np.cross([0.,0.,.1], p)/r.reshape(-1, 1)
     m = np.full(len(p), 0.01)
-    r = np.full(len(p), 0.1)
+    r = np.full(len(p), 0.01)
     Sys = System(p, velocity=v, mass=m, radius=r)
     Sim = Simulation(Sys, gfunc, t_step=0.005)
     # print(Sys.mass.shape)

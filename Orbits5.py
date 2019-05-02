@@ -34,13 +34,13 @@ def main():
     elif PRESET == '3':
         from sim import small_galaxy
         Sim, Sys = small_galaxy(N=PARTICLE_COUNT)
-        B = []
+        B = Sim.buffer(200)
     elif PRESET == '4':
         Sim = rings()
         B = Sim.buffer(500)
         # Rings around a planet
 
-    camera = Camera(Sim.sys, pos=np.array([15., 0, 15]), look=np.array([-1., 0, -1]), screen_depth=1000)
+    camera = Camera(Sim.sys, pos=np.array([40., 0, 40]), look=np.array([-1., 0, -1]), screen_depth=1000)
     camera.set_X_Y_axes(new_Y = np.array([-1., 0, 1]))
 
 

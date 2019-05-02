@@ -121,7 +121,7 @@ def draw_all(x, y, major, minor, angle, fill = [0, 0, 0], box = False, intensity
             # -np.pi/2 ==> the outer end is just touching,
                     #        ie, almost all of it will be in view.
         turtle.up()
-    if np.any(points > 2):
+    if np.any(points > 2) or True:
         clipAngle = np.full(len(x), -np.pi / 2)
 
         # Shifts an xy pair relative to major-minor axes
@@ -136,6 +136,7 @@ def draw_all(x, y, major, minor, angle, fill = [0, 0, 0], box = False, intensity
             return np.array([shiftX, shiftY]).transpose()
 
         turtle.fillcolor('red')
+        turtle.pencolor('red')
         # onScreen = True
         # Drawn = False
         # draw between <angle> and <np.pi - angle>
@@ -157,14 +158,20 @@ def draw_all(x, y, major, minor, angle, fill = [0, 0, 0], box = False, intensity
 
             start_i = 0
             end_i = points[j]
-            for i in range(start_i, end_i):
-                # if (i == start): turtle.dot(10)
-                tempAngle = 2*((end_i / 2) - i)/end_i * c_a
-                point = c + localShift(tempAngle, j)
-                turtle.goto(*point)
+            if end_i <= 2:
+                turtle.dot(2)
+            else:
+                for i in range(start_i, end_i):
+                    # if (i == start): turtle.dot(10)
+                    tempAngle = 2*((end_i / 2) - i)/end_i * c_a
+                    point = c + localShift(tempAngle, j)
+                    turtle.goto(*point)
 
             turtle.end_fill() # Draw the oval:
             turtle.up()
+    else:
+        turtle.up()
+        turtle.goto()
 
     # if (drawStars):
     #     turtle.up()
