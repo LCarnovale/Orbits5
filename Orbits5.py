@@ -1,6 +1,7 @@
 from tkinter import *
 import time
 import loadSystem
+import sys
 
 import numpy as np
 import turtle
@@ -11,40 +12,67 @@ from camera import Camera
 from controller import *
 
 from args_parser import *
+import physics_functions
 
 def main():
     print("Orbits5 Demonstration")
     turtle_drawing.canvas_init()
 
     from sim import big_buffer
-    Sim = simple_system()
-    B = Sim.buffer(1)
-    B, Sim = big_buffer(N=PARTICLE_COUNT, frames=1)
+    physics_functions.GRAVITATIONAL_CONSTANT = args['-G'][1]
+    track_delta = False
+    if START_PAUSED:
+        pause()
+    if PRESET == '1':
+        Sim = simple_system()
+        B = Sim.buffer(1)
+        lock = 1
+    elif PRESET == '2':
+        B, Sim = big_buffer(N=PARTICLE_COUNT, frames=500)
+        track_delta = True
+        lock = 0
+    elif PRESET == '3':
+        from sim import small_galaxy
+        Sim, Sys = small_galaxy(N=PARTICLE_COUNT)
+        B = []
+    elif PRESET == '4':
+        Sim = rings()
+        B = Sim.buffer(500)
+        # Rings around a planet
 
     camera = Camera(Sim.sys, pos=np.array([15., 0, 15]), look=np.array([-1., 0, -1]), screen_depth=1000)
     camera.set_X_Y_axes(new_Y = np.array([-1., 0, 1]))
 
 
     turtle.listen()
-    F = False
-    # F = B.pull()
-    while get_running() != False:
+    F = B.pull()
+    # print(F._dict)
+    # F = False
+    i = 0
+    CoM = Sim.sys.mass.reshape(-1, 1) * Sim.sys.pos
+    CoM = np.mean(CoM, axis=0)
+
+    while get_running() is not False:
+        time.sleep(0.02)
         # print(Sim.sys.N)
         new_pause = get_pause()
         if new_pause != None:
             Sim.pause(new_pause)
 
         turtle_drawing.frame_clear()
-        camera.step(1.)
-        camera.look_at(0)
         if F:
             render = camera.render(F)
             F = B.pull()
-            # print(F)
         else:
+            start = time.time()
             Sim.step()
-            Sim.step_collisions()
+            end = time.time()
+            print(f"Size: {Sim.sys.N} Time: {1000*(end-start):.3f} ms   ", end = '\r')
+            sys.stdout.flush()
+            # Sim.step_collisions()
             render = camera.render()
+        # camera.look_at(lock)
+
         turtle_drawing.draw_all(*render)
         new_pan = get_pan()
         new_rot = get_rotate()
@@ -54,17 +82,28 @@ def main():
                 camera.screen_X_axis_norm * new_rot[1] +
                 camera.look * new_rot[2]
             )
-        if new_rot and np.any(camera.vel):
+        if np.any(camera.vel):
             new_pan = get_pan(True)
         if new_pan != None:
             # render = camera.render()
-            camera.vel = 0.06 * new_pan[3] *(
+            camera.vel = 0.06 * new_pan[3] * camera.closest_surface_dist * (
                 camera.screen_X_axis_norm * new_pan[0] +
                 camera.screen_Y_axis_norm * new_pan[1] +
                 camera.look * new_pan[2]
             )
+        # Track centre of mass:
+        # camera.pos -= CoM.copy()
+        # CoM = Sim.sys.mass.reshape(-1, 1) * Sim.sys.pos
+        # CoM = np.mean(CoM, axis=0)
+        if track_delta: camera.pos += np.mean(Sim.sys.pos_delta, axis=0)
+
         # print(camera.vel)
+        # delta = Sim.sys.pos_delta[lock]
+        # camera.pos += delta
+        # camera.vel += Sim.sys.vel[lock]
+        camera.step(1.)
         turtle_drawing.frame_update()
+    return Sim
         # print("f", end = '')
 
 def simple_system():
@@ -84,6 +123,36 @@ def simple_system():
     circularise(Sys, 2, 1, Sim.func, [0, 0, 1])
 
     return Sim
+
+
+def rings():
+    physics_functions.GRAVITATIONAL_CONSTANT = args['-G'][1]
+    from physics_functions import GravityNewtonian as gfunc
+    planet = [0., 0., 0.]; p_r = 10.
+    rand_angle = np.random.random(PARTICLE_COUNT) * np.pi * 2
+    rand_dist  = np.random.random(PARTICLE_COUNT) * 10 + 13
+    rand_p     = np.array([np.cos(rand_angle), np.sin(rand_angle), np.random.normal(scale=0.01, size=PARTICLE_COUNT)]).transpose()
+    rand_p    *= rand_dist.reshape(-1, 1)
+    mass = np.full(PARTICLE_COUNT+1, 10 / PARTICLE_COUNT)
+    mass[0] = 400
+    radius = np.full(PARTICLE_COUNT+1, 0.05)
+    radius[0] = p_r
+
+    C = physics_functions.circularise
+    pos = np.array([planet, *rand_p])
+    Sys = System(pos, mass=mass, radius=radius, velocity=0.)
+    Sim = Simulation(Sys, gfunc, t_step=0.001)
+    for i in range(1, PARTICLE_COUNT+1):
+        C(Sys, i, 0, Sim.func, [0, 0, 1])
+    Sys.pos[0] *= 0.
+    # print(Sys.vel)
+
+    return Sim
+
+
+
+
+
 # Running = True
 # rotate = [0, 0, 0]
 # pan = [0, 0, 0, 1]
@@ -195,4 +264,4 @@ turtle.onkey(pause,  "space")
 
 
 if __name__ == '__main__':
-    main()
+    s = main()

@@ -208,7 +208,7 @@ else:
 
 Delta			        = args["-d"][1]
 PARTICLE_COUNT	        = args["-n"][1]
-preset			        = args["-p"][1]
+PRESET			        = args["-p"][1]
 STAGGERED_SIM	        = args["-ss"][1]
 START_PAUSED	        = args["-sp"][1]
 PRINT_DATA		        = args["-pd"][1]
@@ -390,5 +390,5 @@ totalIncidentIntensity = 0   # The total intensity of light falling on the camer
 fullFlareBuffer = []
 ## Load presets
 inBuiltPresets = ["1", "2", "3", "4", "5"]
-if (preset not in inBuiltPresets or presetShow):
-	pass
+# if (preset not in inBuiltPresets or presetShow):
+# 	pass

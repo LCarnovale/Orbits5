@@ -18,11 +18,12 @@ def get_flag_if_changed(flag, ignore=False):
     If ignore is True, then the value is returned regardless of it
     has been changed.
     """
-    if change_flags[flag] or ignore:
-        change_flags[flag] = False
-        return controller_flags[flag]
-    else:
-        return None
+    return (change_flags[flag] or None) and controller_flags[flag]
+    # if change_flags[flag] or ignore:
+    #     change_flags[flag] = False
+    #     return controller_flags[flag]
+    # else:
+    #     return None
 
 def set_flag(flag, value):
     """

@@ -67,6 +67,8 @@ class System:
 
 
         self._pos = position
+        self._prev_pos = None # Used to get the change in position of a particle
+                              # after a step
         if np.isscalar(velocity) and velocity is not None:
             velocity = np.full(position.shape, velocity)
         self._vel = velocity
@@ -209,7 +211,8 @@ class System:
         the simulation
 
         """
-        self._active_mask[i] = False
+        # print(f"Killing {i}")
+        self._active_mask[self.active_map[i]] = False
 
     def get_collisions(self):
         """
@@ -224,7 +227,8 @@ class System:
         POS_ALL = np.tile(self.pos, (self.N, 1, 1))
         POS_S = np.tile(self.pos, (1, 1, self.N)).reshape(POS_ALL.shape)
         D = POS_S - POS_ALL # r
-        D = np.sqrt(np.sum(D**2, axis=-1))
+        D = np.linalg.norm(D, 2, axis=-1)
+        # D = np.sqrt(np.sum(D**2, axis=-1))
         # Get combined radii:
         RM = self.radius.reshape(1, -1)
         Rgrid = RM + RM.transpose()
@@ -259,7 +263,7 @@ class System:
         """
         collisions = self.get_collisions()
         if not collisions.any(): return 0
-        print(collisions)
+        # print(collisions)
         r = test(self, collisions[:,0], collisions[:,1])
         mask = np.array([r < 0, r > 0]).transpose()
         idx_array = collisions[mask]
@@ -318,6 +322,30 @@ class System:
         _r = self.radius
         _r[indexes] = values
         np.copyto(self.radius, _r)
+
+
+    def set_prev_pos(self):
+        """
+        Call this to set the current pos array as the previous pos array,
+        use this before applying a change to the array to be able to get the
+        change in position.
+        """
+        self._prev_pos = self._pos.copy()
+
+    """
+    Properties
+    """
+    @property
+    def prev_pos(self):
+        if np.any(self._prev_pos == None):
+            raise SimulationError("Attempted to get previous position from System without first setting it")
+        else:
+            return self._prev_pos[self.get_mask]
+
+    @property
+    def pos_delta(self):
+        return self.pos - self.prev_pos
+
 
     @property
     def active_map(self):
@@ -497,7 +525,7 @@ class Buffer:
     """
     Used to handle the output from sim.buffer(),
     a Buffer object can be indexed and sliced to return
-    a dict with the same original keys but with specific frames.
+    another buffer with the same original keys but with specific frames.
     """
     def __init__(self, buffer_dict):
         self._dict = buffer_dict
@@ -506,7 +534,11 @@ class Buffer:
         if type(s) in [int, slice]:
             out = {}
             for k in self._dict:
-                out[k] = self._dict[k][s]
+                val = self._dict[k][s].copy()
+                if type(s) != slice:
+                    out[k] = np.array([val])
+                else:
+                    out[k] = val
             return Buffer(out)
         elif s in self._dict:
             return self._dict[s]
@@ -524,7 +556,7 @@ class Buffer:
         if len(self) == 0:
             return None
         f = self[0].copy()
-        self = self[1:]
+        self._dict = self[1:]._dict
         return f
 
     def copy(self):
@@ -540,7 +572,7 @@ class Buffer:
 
 
 class Simulation:
-    def __init__(self, system, func, t_step=1, camera=None,
+    def __init__(self, system, func, t_step=1, camera=None, tracked_value=None,
                 test_func=DEFAULT_TEST, init_func=DEFAULT_INIT,
                 kill_func=DEFAULT_KILL):
         """
@@ -590,15 +622,17 @@ class Simulation:
 
         def fill_vals(i):
             for attr in buffer_attrs:
-                # if attr != 'active':
-                #     mask = self._sys.active
-                # else:
-                #     mask = slice(None) # index full array
                 if attr != 'active':
-                    mask = self._sys.get_mask
+                    mask = self._sys.active
                 else:
-                    mask = slice(None)
-                np.copyto(output[attr][i][mask], self._sys.__getattr__(attr))
+                    mask = slice(0, None) # index full array
+                # if attr != 'active':
+                #     mask = self._sys.get_mask
+                # else:
+                #     mask = slice(None)
+                output[attr][i][mask] = self._sys.__getattr__(attr).copy()
+                # print(f'{output[attr][i][mask]} (attr={attr}, mask={mask}) should equal {self._sys.__getattr__(attr)}')
+            # exit()
 
 
         for i in range(n):
@@ -606,31 +640,53 @@ class Simulation:
             fill_vals(i)
             # self._sys.set_active_mask(True)
             self.step(t_step)
-            self.step_collisions()
+            # self.step_collisions()
 
         return Buffer(output)
 
     def init_sim(self):
         self._sys = self._init_func(self._sys, self._func, self._t_step)
 
-    def step(self, t_step = None, n=1):
+    def step(self, t_step = None, n=1, collisions=True, mode='every', set_prev=True):
         """
         If the sim is not paused,
         Calls self.func and performs a step.
+
+        n:  Number of steps to execute. Default 1.
+
+        collisions: Default True, If True, call step_collisions() after each step (if mode == 'every')
+        or after the last step (if mode == 'once')
+
+        mode: Default 'every', makes collision checking happen every step. If set to 'once',
+            collisions are checked after the final step.
+
+        set_prev: If True, call sys.set_prev_pos() before running the first step.
+            Will only be called once, not per step.
+
         """
+        if mode not in ['once', 'every']:
+            raise SimulationError(f"'mode' argument must be 'once' or 'every', given {mode}")
         if self._camera:
             self._camera.step(t_step)
 
-        if self._pause: return
 
         if t_step is None:
             t_step = self._t_step
+
+        if set_prev: self._sys.set_prev_pos()
+
+        if self._pause: return
 
         for i in range(n):
             F = self._func(self._sys)
             A = F / self._sys.mass.reshape(self._sys.N, 1)
             self._sys.vel = self._sys.vel + t_step * A
             self._sys.pos = self._sys.pos + t_step * self._sys.vel
+            if collisions and mode == 'every':
+                self.step_collisions()
+        if collisions and mode == 'once':
+            self.step_collisions()
+
 
 
     def step_collisions(self):
@@ -676,11 +732,11 @@ def big_buffer(N=100, frames=100, show=False):
         gfunc
     except:
         from physics_functions import GravityNewtonian as gfunc
-    c =      np.array([[np.cos(x)*10+np.random.normal(), np.sin(x)*10+np.random.normal(), 0.5*np.random.normal()] for x in np.linspace(0, 2*np.pi, N, False)])
-    v = 30 * np.array([[np.sin(x)*5+np.random.normal(),-np.cos(x)*5+np.random.normal(), np.random.normal()] for x in np.linspace(0, 2*np.pi, N, False)])
-    p = np.random.random((N, 3)) * 10
+    c =      np.array([[np.cos(x)*10*np.random.random(), np.sin(x)*10+np.random.normal(), 0.1*np.random.normal()] for x in np.linspace(0, 2*np.pi, N, False)])
+    v = 40 * np.array([[np.sin(x)*5+np.random.normal(),-np.cos(x)*5+np.random.normal(), np.random.normal()] for x in np.linspace(0, 2*np.pi, N, False)])
+    # p = np.random.random((N, 3)) * 10
     # v = np.random.random((N, 3))
-    r = np.ones(N) * 1e-1
+    r = np.ones(N) * 5e-2
     m = (1 + np.random.random(N)) * 10
     Sys = System(c, v, m, r)
     Sim = Simulation(Sys, gfunc, t_step=0.0005)
@@ -703,6 +759,25 @@ def big_buffer(N=100, frames=100, show=False):
         ax.set_zlim(-20, 20)
         plt.show()
     return d, Sim
+
+def small_galaxy(N=1000):
+    try:
+        gfunc
+    except:
+        from physics_functions import GravityNewtonian as gfunc
+    p = np.random.normal(scale=(10., 10., .2), size=(N, 3))
+    r = np.linalg.norm(p, 2, axis=-1)
+    a = 2; b = 1 # Constants, can be changed to try different rotation curve
+    speed = 200/(a*r + b) * np.log(a*r + b)
+    v = speed.reshape(-1, 1) * np.cross([0.,0.,.1], p)/r.reshape(-1, 1)
+    m = np.full(len(p), 0.01)
+    r = np.full(len(p), 0.1)
+    Sys = System(p, velocity=v, mass=m, radius=r)
+    Sim = Simulation(Sys, gfunc, t_step=0.005)
+    # print(Sys.mass.shape)
+    # print(Sys.N)
+    # print(Sys.dim)
+    return Sim, Sys
 
 def solar_system_sample():
     try:

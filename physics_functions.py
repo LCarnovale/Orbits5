@@ -10,6 +10,9 @@ class FunctionError(Exception):
     def __init__(self, msg):
         super().__init__(msg)
 
+TRACKED_VALUE = None
+# def set_tracked(value):
+
 
 GRAVITATIONAL_CONSTANT = 1
 
@@ -30,6 +33,10 @@ def circularise(sys, A, B, f_func, axis):
         raise FunctionError("A and B must be scalars")
     new_sys = sys[[A, B]] # Isolate the two particles
     # if np.any(new_sys.mass) and np.any(new_sys.vel):
+    # print("=== new sys ===")
+    # print(new_sys.mass)
+    # print(new_sys.pos)
+    # print('=== ===')
     pA, pB = new_sys.pos[0], new_sys.pos[1]
     BA_vec = pA - pB
     dist = np.linalg.norm(BA_vec, 2)
@@ -48,11 +55,11 @@ def circularise(sys, A, B, f_func, axis):
     fA = F[0] #/ rMass
     fB = F[1] #/ rMass
 
-    vA_new =  np.sqrt(fA * dA / mA) / rMass
-    vB_new =  np.sqrt(fB * dB / mB) / rMass
-    # vB_new = np.sqrt(fB * dist * (mA + mB) / mB)
+    vA_new = np.sqrt(fA * dA  / (rMass))
+    vB_new = np.sqrt(fB * dB  / (rMass))
 
-    direction = np.cross(axis, BA_vec) / np.linalg.norm(axis, 2)
+    direction  = np.cross(axis, BA_vec)
+    direction /= np.linalg.norm(direction, 2)
     vA_new =  vA_new * direction
     vB_new = -vB_new * direction
 

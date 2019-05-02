@@ -64,6 +64,7 @@ class Camera:
             look[0] = 1
 
 
+
         p_shape = pos.shape
         v_shape = vel.shape
         r_shape = rot.shape
@@ -89,6 +90,10 @@ class Camera:
         self.set_X_Y_axes(new_Y = np.array([0, 0, 1]))
         # print(self._screen_X_axis)
         # print(self._screen_Y_axis)
+        self._closest_particle = None
+        self._closest_centre_loc = default_Nd.copy()
+        self._closest_surface_dist = 0
+
 
     def set_X_Y_axes(self, new_X=None, new_Y=None):
         """
@@ -129,10 +134,10 @@ class Camera:
 
         """
         if buffer:
-            frame_data = buffer[frame]
-            active = frame_data['active']
-            radius = frame_data['radius'][active]
-            pos = frame_data['pos'][active]
+            # frame_data = buffer[frame]
+            active = buffer['active'][frame]
+            radius = buffer['radius'][frame][active]
+            pos = buffer['pos'][frame][active]
         else:
             pos = self._sys.pos
             radius = self._sys.radius
@@ -148,6 +153,10 @@ class Camera:
         self_pos = np.tile(self.pos, (N, 1))
         rel_pos  = pos - self_pos
         rel_dist = np.linalg.norm(rel_pos, 2, axis=-1)
+        min_idx = np.argmin(rel_dist)
+        self._closest_particle = min_idx
+        self._closest_centre_loc = pos[min_idx]
+        self._closest_surface_dist = rel_dist[min_idx] - radius[min_idx]
         ### Do some math
         # Get distance from camera to point on screen:        \/ row wise dot product
         dist_to_screen    = self._screen_depth * rel_dist / (np.sum(rel_pos*look_array, axis=-1))
@@ -225,6 +234,20 @@ class Camera:
             # print("screen_X_axis:", self._screen_X_axis)
 
 
+    """
+    Properties
+    """
+    @property
+    def closest_centre_loc(self):
+        return self._closest_centre_loc
+
+    @property
+    def closest_surface_dist(self):
+        return self._closest_surface_dist
+
+    @property
+    def closest_particle(self):
+        return self._closest_particle
 
     def look():
         doc = "Direction the camera is pointing"
