@@ -1,14 +1,15 @@
 import turtle
 from args_parser import *
+from controller import *
 
 def canvas_init():
     window = turtle.Screen()
-    window.setup(width = 1.0, height = 1.0)
-    turtle.bgcolor([0, 0, 0])
-    # turtle.bgcolor("white")
-
-    turtle.tracer(0, 0)             # Makes the turtle's speed instantaneous
     turtle.hideturtle()
+    window.setup(width = 1.0, height = 1.0)
+    window.bgcolor([0, 0, 0])
+
+    window.tracer(0, 0)             # Makes the turtle's speed instantaneous
+    return window
 
 
 def frame_clear():
@@ -17,8 +18,17 @@ def frame_clear():
 def frame_update():
     turtle.update()
 
+def play_buffer(buffer):
+    """
+    Open a window and play a buffer
+    """
+    canvas_init()
 
-def draw_all(x, y, major, minor, angle, fill = [0, 0, 0], box = False, intensity = None, screen_radius=None):
+
+
+
+def draw_all(x, y, major, minor, angle, fill = [0,0,0],
+            box = False, intensity = None, screen_radius=None):
     global ellipsePoints
     global drawStars
     global lowestApparentMag
@@ -218,48 +228,48 @@ def draw_all(x, y, major, minor, angle, fill = [0, 0, 0], box = False, intensity
     return True
 
 
-#
-# turtle.onkeypress(panLeft, "a")
-# turtle.onkeyrelease(panRight , "a")
-#
-# turtle.onkeypress(panRight, "d")
-# turtle.onkeyrelease(panLeft , "d")
-#
-# turtle.onkeypress(panForward, "w")
-# turtle.onkeyrelease(panBack , "w")
-#
-# turtle.onkeypress(panBack, "s")
-# turtle.onkeyrelease(panForward , "s")
-#
-# turtle.onkeypress(panUp, "r")
-# turtle.onkeyrelease(panDown , "r")
-#
-# turtle.onkeypress(panDown, "f")
-# turtle.onkeyrelease(panUp , "f")
-#
-# turtle.onkeypress(panFast, "Shift_L")
-# turtle.onkeyrelease(panSlow, "Shift_L")
-#
-# turtle.onkeypress(rotRight, "Right")
-# turtle.onkeyrelease(rotLeft, "Right")
-#
-# turtle.onkeypress(rotLeft, "Left")
-# turtle.onkeyrelease(rotRight, "Left")
-#
-# turtle.onkeypress(rotUp, "Up")
-# turtle.onkeyrelease(rotDown, "Up")
-#
-# turtle.onkeypress(rotDown, "Down")
-# turtle.onkeyrelease(rotUp, "Down")
-#
-# turtle.onkeypress(rotClockWise, "e")
-# turtle.onkeyrelease(rotAntiClock, "e")
-#
-# turtle.onkeypress(rotAntiClock, "q")
-# turtle.onkeyrelease(rotClockWise, "q")
-#
-# turtle.onkey(escape, "Escape")
-# turtle.onkey(pause,  "space")
+
+turtle.onkeypress(panLeft, "a")
+turtle.onkeyrelease(panRight , "a")
+
+turtle.onkeypress(panRight, "d")
+turtle.onkeyrelease(panLeft , "d")
+
+turtle.onkeypress(panForward, "w")
+turtle.onkeyrelease(panBack , "w")
+
+turtle.onkeypress(panBack, "s")
+turtle.onkeyrelease(panForward , "s")
+
+turtle.onkeypress(panUp, "r")
+turtle.onkeyrelease(panDown , "r")
+
+turtle.onkeypress(panDown, "f")
+turtle.onkeyrelease(panUp , "f")
+
+turtle.onkeypress(panFast, "Shift_L")
+turtle.onkeyrelease(panSlow, "Shift_L")
+
+turtle.onkeypress(rotRight, "Right")
+turtle.onkeyrelease(rotLeft, "Right")
+
+turtle.onkeypress(rotLeft, "Left")
+turtle.onkeyrelease(rotRight, "Left")
+
+turtle.onkeypress(rotUp, "Up")
+turtle.onkeyrelease(rotDown, "Up")
+
+turtle.onkeypress(rotDown, "Down")
+turtle.onkeyrelease(rotUp, "Down")
+
+turtle.onkeypress(rotClockWise, "e")
+turtle.onkeyrelease(rotAntiClock, "e")
+
+turtle.onkeypress(rotAntiClock, "q")
+turtle.onkeyrelease(rotClockWise, "q")
+
+turtle.onkey(escape, "Escape")
+turtle.onkey(pause,  "space")
 #
 # turtle.onkey(cycleTargets, "Tab")
 # turtle.onkeypress(togglePanTrack, "t")
