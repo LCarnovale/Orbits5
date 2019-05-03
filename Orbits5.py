@@ -26,18 +26,17 @@ def main():
     if PRESET == '1':
         Sim = simple_system()
         B = Sim.buffer(1)
-        lock = 1
     elif PRESET == '2':
         B, Sim = big_buffer(N=PARTICLE_COUNT, frames=500)
         track_delta = True
-        lock = 0
     elif PRESET == '3':
         from sim import small_galaxy
         Sim, Sys = small_galaxy(N=PARTICLE_COUNT)
         B = Sim.buffer(200)
     elif PRESET == '4':
         Sim = rings()
-        B = Sim.buffer(500)
+        B = Sim.buffer(300, verb=True, n=4, append_buffer=True)
+        track_delta = True
         # Rings around a planet
 
     camera = Camera(Sim.sys, pos=np.array([40., 0, 40]), look=np.array([-1., 0, -1]), screen_depth=1000)
@@ -60,17 +59,17 @@ def main():
             Sim.pause(new_pause)
 
         turtle_drawing.frame_clear()
-        if F:
-            render = camera.render(F)
-            F = B.pull()
-        else:
-            start = time.time()
-            Sim.step()
-            end = time.time()
-            print(f"Size: {Sim.sys.N} Time: {1000*(end-start):.3f} ms   ", end = '\r')
-            sys.stdout.flush()
+        start = time.time()
+        # if F:
+        # render = camera.render(F)
+            # if not Sim.paused:
+        # F = B.pull()
+        # else:
+        Sim.step()
             # Sim.step_collisions()
-            render = camera.render()
+        render = camera.render()
+        end = time.time()
+        print(f"Size: {Sim.sys.N} Time: {1000*(end-start):.3f} ms   ", end = '\r'); sys.stdout.flush()
         # camera.look_at(lock)
 
         turtle_drawing.draw_all(*render)
@@ -103,6 +102,7 @@ def main():
         # camera.vel += Sim.sys.vel[lock]
         camera.step(1.)
         turtle_drawing.frame_update()
+    print()
     return Sim
         # print("f", end = '')
 

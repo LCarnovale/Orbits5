@@ -154,20 +154,20 @@ def draw_all(x, y, major, minor, angle, fill = [0, 0, 0], box = False, intensity
             # print(s)
 
             turtle.goto(*s)
-            turtle.begin_fill()
 
             start_i = 0
             end_i = points[j]
             if end_i <= 2:
                 turtle.dot(2)
             else:
+                turtle.begin_fill()
                 for i in range(start_i, end_i):
                     # if (i == start): turtle.dot(10)
                     tempAngle = 2*((end_i / 2) - i)/end_i * c_a
                     point = c + localShift(tempAngle, j)
                     turtle.goto(*point)
+                turtle.end_fill() # Draw the oval:
 
-            turtle.end_fill() # Draw the oval:
             turtle.up()
     else:
         turtle.up()

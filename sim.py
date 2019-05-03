@@ -530,6 +530,21 @@ class Buffer:
     def __init__(self, buffer_dict):
         self._dict = buffer_dict
 
+    def __add__(self, buffer):
+        new = self.copy()
+        if buffer == None:
+            return self.copy()
+        for k in self._dict:
+            new._dict[k] = np.append(self._dict[k], buffer[k], axis=0)
+
+        return new
+
+    def __radd__(self, buffer):
+        return self.__add__(buffer)
+
+    def __iadd__(self, buffer):
+        self = self + buffer
+
     def __getitem__(self, s):
         if type(s) in [int, slice]:
             out = {}
@@ -560,7 +575,8 @@ class Buffer:
         return f
 
     def copy(self):
-        return Buffer(self._dict.copy())
+        d = {k:self._dict[k].copy() for k in self._dict}
+        return Buffer(d)
 
     @property
     def size(self):
@@ -593,17 +609,26 @@ class Simulation:
         self._init_func = init_func
         self._kill_func = kill_func
         self._pause = False
+        self._buffer = None
+        self._last_frame = None
 
 
-    def buffer(self, n, t_step=None, buffer_attrs=None):
+    def buffer(self, buffer_n, t_step=None, buffer_attrs=None, append_buffer=True,
+        verb=False, **step_kwargs):
         """
-        sim.buffer(n, t_step=sim.t_step, buffer_attrs=['pos', 'vel', 'mass', 'radius'])
+        sim.buffer(buffer_n, t_step=sim.t_step, buffer_attrs=['pos', 'vel', 'mass', 'radius'],
+            **step_kwargs ( used by Sim.step() ) )
         --> {x: array, ... for x in buffer_attrs}
 
-        Perform n steps and store the results in a dictionary of arrays.
+        Perform buffer_n steps and store the results in a dictionary of arrays.
 
         buffer_attrs should be a list of valid attributes of the system attached
         to the sim, ie sim.sys.
+
+        if append_buffer is True, any existing buffer will be appended. If the
+        existing buffer has different fields recorded, an error is raised.
+
+        Prints progress if verb == True
 
         The output dict has keys equal to the values in buffer_attrs,
         and each value is an array of shape (n, <the shape of sys.attr>),
@@ -613,12 +638,22 @@ class Simulation:
         if t_step == None:
             t_step = self.t_step
         if buffer_attrs == None:
-            buffer_attrs = ['pos', 'vel', 'mass', 'radius', 'active']
+            buffer_attrs = ['pos', 'vel', 'mass', 'radius', 'active', 'N']
+        if append_buffer and self._buffer != None and {*buffer_attrs} != set(self._buffer.keys):
+            raise SimulationError(
+                msg="Keys in existing do not match requested buffer_attributes, \ncannot append to the existing buffer."
+            )
+        if 'pull_buffer' in step_kwargs:
+            raise SimulationError(
+                msg="Can not use 'pull_buffer' keyword when creating a buffer. (It must be false when performing steps)"
+            )
 
         output = {}
+        m = self._sys.set_active_mask(False)
         for attr in buffer_attrs:
             attr_val = self._sys.__getattr__(attr)
-            output[attr] = np.zeros((n,) + np.shape(attr_val), dtype=attr_val.dtype)
+            output[attr] = np.zeros((buffer_n,) + np.shape(attr_val), dtype=type(attr_val))
+        self._sys.set_active_mask(m)
 
         def fill_vals(i):
             for attr in buffer_attrs:
@@ -626,28 +661,35 @@ class Simulation:
                     mask = self._sys.active
                 else:
                     mask = slice(0, None) # index full array
-                # if attr != 'active':
-                #     mask = self._sys.get_mask
-                # else:
-                #     mask = slice(None)
-                output[attr][i][mask] = self._sys.__getattr__(attr).copy()
-                # print(f'{output[attr][i][mask]} (attr={attr}, mask={mask}) should equal {self._sys.__getattr__(attr)}')
-            # exit()
+                try:
+                    output[attr][i][mask] = self._sys.__getattr__(attr).copy()
+                except:
+                    # try without copying (scalar values might not allow copying)
+                    output[attr][i] = self._sys.__getattr__(attr)
 
 
-        for i in range(n):
-            # self._sys.set_active_mask(False)
+
+        if verb:
+            from sys import stdout
+            flush = stdout.flush
+            steps_len = len(str(buffer_n))
+        for i in range(buffer_n):
+            if verb:
+                print(f'Buffering frame {i:0>{steps_len}} / {buffer_n}', end = '\r'); flush()
             fill_vals(i)
-            # self._sys.set_active_mask(True)
-            self.step(t_step)
-            # self.step_collisions()
+            self.step(t_step, pull_buffer=False, **step_kwargs)
+        if verb: print()
 
-        return Buffer(output)
+        new_buffer = Buffer(output)
+        if append_buffer:
+            self._buffer = self._buffer + new_buffer
+        return new_buffer
 
     def init_sim(self):
         self._sys = self._init_func(self._sys, self._func, self._t_step)
 
-    def step(self, t_step = None, n=1, collisions=True, mode='every', set_prev=True):
+    def step(self, t_step = None, n=1, collisions=True, mode='every', set_prev=True,
+            pull_buffer=True):
         """
         If the sim is not paused,
         Calls self.func and performs a step.
@@ -663,6 +705,8 @@ class Simulation:
         set_prev: If True, call sys.set_prev_pos() before running the first step.
             Will only be called once, not per step.
 
+        pull_buffer: If True, a frame from the attached buffer will be pulled if it exists.
+
         """
         if mode not in ['once', 'every']:
             raise SimulationError(f"'mode' argument must be 'once' or 'every', given {mode}")
@@ -676,6 +720,13 @@ class Simulation:
         if set_prev: self._sys.set_prev_pos()
 
         if self._pause: return
+
+        if self._buffer != None and pull_buffer:
+            frame = self._buffer.pull()
+            # print(len(self._buffer))
+            self._last_frame = frame
+            if frame:
+                return frame
 
         for i in range(n):
             F = self._func(self._sys)
@@ -707,6 +758,20 @@ class Simulation:
         else:
             self._pause = on_off
 
+    """
+    Properties
+    """
+
+    @property
+    def paused(self):
+        return self._pause
+
+    @property
+    def pos(self):
+        if self._last_frame:
+            return self._last_frame['pos'][0]
+        else:
+            return self.sys.pos
 
     @property
     def sys(self):
