@@ -35,24 +35,25 @@ class Camera:
     """
     Methods to produce arrays of x, y, minor and major axes, and angle of rotation.
     """
-    def __init__(self, sys, pos=None, vel=None, rot=None, look=None,
+    # TO DO!!! MAKE SYS A SIM INSTEAD OF SYS
+    def __init__(self, sim, pos=None, vel=None, rot=None, look=None,
                 screen_depth=20):
         """
         Args:
-            sys: System of particles
-            pos: sys.dim length array for position
-            vel: sys.dim length array for velocity
-            rot: sys.dim length array for rotational velocity,
+            sim: A Simulation object
+            pos: sim.sys.dim length array for position
+            vel: sim.sys.dim length array for velocity
+            rot: sim.sys.dim length array for rotational velocity,
                  where the magnitude represents radians per second,
                  and direction is the axis of rotation.
-            look: sys.dim length array for the direction the camera
+            look: sim.sys.dim length array for the direction the camera
                  is currently pointin.
         """
 
-        if sys.dim != 3:
+        if sim.dim != 3:
             raise CameraError("This camera class only supports 3D systems.")
-        default_Nd = np.zeros(3, dtype=float)
-        self._sys = sys
+        default_Nd = np.zeros(3, dtype=np.float64)
+        self._sim = sim
         if np.any(pos == None):
             pos = default_Nd.copy()
         if np.any(vel == None):
@@ -69,21 +70,21 @@ class Camera:
         v_shape = vel.shape
         r_shape = rot.shape
         l_shape = look.shape
-        sys_shape = sys.pos[0].shape
-        if sys_shape != p_shape:
-            raise CameraError("Dimension mismatch between sys.pos and given position vector")
-        if sys_shape != v_shape:
-            raise CameraError("Dimension mismatch between sys.pos and given velocity vector")
-        if sys_shape != r_shape:
-            raise CameraError("Dimension mismatch between sys.pos and given rotation vector")
-        if sys_shape != l_shape:
-            raise CameraError("Dimension mismatch between sys.pos and given look vector")
+        sim_shape = sim.pos[0].shape
+        if sim_shape != p_shape:
+            raise CameraError("Dimension mismatch between sim.pos and given position vector")
+        if sim_shape != v_shape:
+            raise CameraError("Dimension mismatch between sim.pos and given velocity vector")
+        if sim_shape != r_shape:
+            raise CameraError("Dimension mismatch between sim.pos and given rotation vector")
+        if sim_shape != l_shape:
+            raise CameraError("Dimension mismatch between sim.pos and given look vector")
 
-        self._pos = pos
-        self._vel = vel
-        self._rot = rot; self._prev_rot = rot.copy()
+        self._pos = np.asarray(pos).astype(np.float64)
+        self._vel = np.asarray(vel).astype(np.float64)
+        self._rot = np.asarray(rot).astype(np.float64); self._prev_rot = self._rot.copy()
         self._screen_depth = screen_depth
-        self._look = look
+        self._look = np.asarray(look).astype(np.float64)
 
         self._rot_mat = rotation_matrix(self._rot)
         # self._screen_X_axis = np.array()
@@ -129,7 +130,7 @@ class Camera:
         will be rendered, unless a frame number is given.
         The buffer MUST have at least position, radius and active.
 
-        If no buffer is given, the positions as they exist in self.sys will
+        If no buffer is given, the positions as they exist in self.sim.sys will
         be rendered.
 
         """
@@ -139,9 +140,9 @@ class Camera:
             radius = buffer['radius'][frame][active]
             pos = buffer['pos'][frame][active]
         else:
-            pos = self._sys.pos
-            radius = self._sys.radius
-            # active = self._sys.get_mask
+            pos = self._sim.pos
+            radius = self._sim.radius
+            # active = self._sim.get_mask
 
         N = len(pos)
 
@@ -150,7 +151,7 @@ class Camera:
         look_array = np.tile(self._look, (N, 1))
 
         # Get relative position:
-        self_pos = np.tile(self.pos, (N, 1))
+        self_pos = np.tile(self._pos, (N, 1))
         rel_pos  = pos - self_pos
         rel_dist = np.linalg.norm(rel_pos, 2, axis=-1)
         min_idx = np.argmin(rel_dist)
@@ -198,13 +199,13 @@ class Camera:
 
     def look_at(self, point, sys=None):
         """
-        point: index in sys or self.sys (if sys not given),
+        point: index in sys or self.sim.sys (if sys not given),
             or an array of length 3.
         """
         if np.isscalar(point):
             # point is an index
             if sys == None:
-                sys = self.sys
+                sys = self.sim.sys
 
             pos = sys.pos[point]
 

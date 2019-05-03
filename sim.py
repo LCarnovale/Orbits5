@@ -66,17 +66,17 @@ class System:
 
 
 
-        self._pos = position
+        self._pos = np.asarray(position).astype(np.float64)
         self._prev_pos = None # Used to get the change in position of a particle
                               # after a step
         if np.isscalar(velocity) and velocity is not None:
-            velocity = np.full(position.shape, velocity)
+            velocity = np.full(position.shape, velocity, dtype=np.float64)
         self._vel = velocity
         if np.isscalar(mass) and mass is not None:
-            mass = np.full(position.shape[0], mass)
+            mass = np.full(position.shape[0], mass, dtype=np.float64)
         self._mass = mass
         if np.isscalar(radius) and radius is not None:
-            radius = np.full(position.shape[0], radius)
+            radius = np.full(position.shape[0], radius, dtype=np.float64)
         self._radius = radius
 
         if info == None:
@@ -530,6 +530,9 @@ class Buffer:
     def __init__(self, buffer_dict):
         self._dict = buffer_dict
 
+    def __str__(self):
+        return f'<Buffer length {len(self)}, fields: {[k for k in self._dict]}>'
+
     def __add__(self, buffer):
         new = self.copy()
         if buffer == None:
@@ -538,6 +541,9 @@ class Buffer:
             new._dict[k] = np.append(self._dict[k], buffer[k], axis=0)
 
         return new
+
+    def __contains__(self, x):
+        return self._dict.__contains__(x)
 
     def __radd__(self, buffer):
         return self.__add__(buffer)
@@ -612,6 +618,26 @@ class Simulation:
         self._buffer = None
         self._last_frame = None
 
+    def __getattr__(self, attr):
+        """
+        If a buffer exists, try getting the attribute from the buffer.
+        Otherwise, try getting the attribute from the attached System.
+        """
+        if self._buffer and attr in self._buffer:
+            if self._last_frame:
+                return self._last_frame[attr][0]
+            else:
+                return self._buffer[attr][0]
+        else:
+            return self._sys.__getattr__(attr)
+            # try:
+            # except KeyError:
+
+                # try:
+                #     return
+        # else:
+        #     return
+
 
     def buffer(self, buffer_n, t_step=None, buffer_attrs=None, append_buffer=True,
         verb=False, **step_kwargs):
@@ -652,7 +678,11 @@ class Simulation:
         m = self._sys.set_active_mask(False)
         for attr in buffer_attrs:
             attr_val = self._sys.__getattr__(attr)
-            output[attr] = np.zeros((buffer_n,) + np.shape(attr_val), dtype=type(attr_val))
+            try:
+                dtype_ = attr_val.dtype
+            except:
+                dtype_ = float
+            output[attr] = np.zeros((buffer_n,) + np.shape(attr_val), dtype=dtype_)
         self._sys.set_active_mask(m)
 
         def fill_vals(i):
@@ -677,7 +707,7 @@ class Simulation:
             if verb:
                 print(f'Buffering frame {i:0>{steps_len}} / {buffer_n}', end = '\r'); flush()
             fill_vals(i)
-            self.step(t_step, pull_buffer=False, **step_kwargs)
+            self.step(t_step, pull_buffer=False, ignore_pause=True, **step_kwargs)
         if verb: print()
 
         new_buffer = Buffer(output)
@@ -689,7 +719,7 @@ class Simulation:
         self._sys = self._init_func(self._sys, self._func, self._t_step)
 
     def step(self, t_step = None, n=1, collisions=True, mode='every', set_prev=True,
-            pull_buffer=True):
+            pull_buffer=True, ignore_pause=False):
         """
         If the sim is not paused,
         Calls self.func and performs a step.
@@ -719,14 +749,21 @@ class Simulation:
 
         if set_prev: self._sys.set_prev_pos()
 
-        if self._pause: return
+        if self._pause and not ignore_pause:
+            if pull_buffer:
+                self.buffer(1, append_buffer=True)
+            return
 
-        if self._buffer != None and pull_buffer:
-            frame = self._buffer.pull()
-            # print(len(self._buffer))
-            self._last_frame = frame
-            if frame:
-                return frame
+        if pull_buffer:
+            if self._buffer != None:
+                if len(self._buffer) > 0:
+                    frame = self._buffer.pull()
+                    self._last_frame = frame
+                    return frame
+                else:
+                    self._last_frame = None
+                    self._buffer = None
+
 
         for i in range(n):
             F = self._func(self._sys)
@@ -737,6 +774,7 @@ class Simulation:
                 self.step_collisions()
         if collisions and mode == 'once':
             self.step_collisions()
+        return None
 
 
 
@@ -767,11 +805,15 @@ class Simulation:
         return self._pause
 
     @property
-    def pos(self):
-        if self._last_frame:
-            return self._last_frame['pos'][0]
-        else:
-            return self.sys.pos
+    def stored(self):
+        return self._buffer
+
+    # @property
+    # def pos(self):
+    #     if self._last_frame:
+    #         return self._last_frame['pos'][0]
+    #     else:
+    #         return self.sys.pos
 
     @property
     def sys(self):

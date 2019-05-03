@@ -5,18 +5,18 @@ import sys
 
 import numpy as np
 import turtle
-import turtle_drawing
 import matplotlib.pyplot as plt
 from sim import Simulation, System
 from camera import Camera
 from controller import *
 
+from turtle_drawing import *
 from args_parser import *
 import physics_functions
 
 def main():
     print("Orbits5 Demonstration")
-    turtle_drawing.canvas_init()
+    canvas_init()
 
     from sim import big_buffer
     physics_functions.GRAVITATIONAL_CONSTANT = args['-G'][1]
@@ -32,22 +32,22 @@ def main():
     elif PRESET == '3':
         from sim import small_galaxy
         Sim, Sys = small_galaxy(N=PARTICLE_COUNT)
-        B = Sim.buffer(200)
+        if args['-d'][-1]:
+            Sim.t_step = args['-d'][1]
+        # B = Sim.buffer(50, n=4, verb=True)
     elif PRESET == '4':
         Sim = rings()
         B = Sim.buffer(300, verb=True, n=4, append_buffer=True)
         track_delta = True
         # Rings around a planet
 
-    camera = Camera(Sim.sys, pos=np.array([40., 0, 40]), look=np.array([-1., 0, -1]), screen_depth=1000)
+    camera = Camera(Sim, pos=np.array([40., 0, 40]), look=np.array([-1., 0, -1]), screen_depth=1000)
     camera.set_X_Y_axes(new_Y = np.array([-1., 0, 1]))
 
 
     turtle.listen()
-    F = B.pull()
     # print(F._dict)
     # F = False
-    i = 0
     CoM = Sim.sys.mass.reshape(-1, 1) * Sim.sys.pos
     CoM = np.mean(CoM, axis=0)
 
@@ -56,23 +56,27 @@ def main():
         # print(Sim.sys.N)
         new_pause = get_pause()
         if new_pause != None:
+            print(f"Pause = {Sim.paused}")
             Sim.pause(new_pause)
 
-        turtle_drawing.frame_clear()
+        frame_clear()
         start = time.time()
         # if F:
         # render = camera.render(F)
             # if not Sim.paused:
         # F = B.pull()
         # else:
-        Sim.step()
+        F = Sim.step()
+        if F:
             # Sim.step_collisions()
-        render = camera.render()
+            render = camera.render(F)
+        else:
+            render = camera.render()
         end = time.time()
-        print(f"Size: {Sim.sys.N} Time: {1000*(end-start):.3f} ms   ", end = '\r'); sys.stdout.flush()
+        print(f"Buffer: {Sim.stored} Size: {Sim.sys.N} Time: {1000*(end-start):.3f} ms   ", end = '\r'); sys.stdout.flush()
         # camera.look_at(lock)
 
-        turtle_drawing.draw_all(*render)
+        draw_all(*render)
         new_pan = get_pan()
         new_rot = get_rotate()
         if new_rot != None:
@@ -101,7 +105,7 @@ def main():
         # camera.pos += delta
         # camera.vel += Sim.sys.vel[lock]
         camera.step(1.)
-        turtle_drawing.frame_update()
+        frame_update()
     print()
     return Sim
         # print("f", end = '')
@@ -133,7 +137,7 @@ def rings():
     rand_dist  = np.random.random(PARTICLE_COUNT) * 10 + 13
     rand_p     = np.array([np.cos(rand_angle), np.sin(rand_angle), np.random.normal(scale=0.01, size=PARTICLE_COUNT)]).transpose()
     rand_p    *= rand_dist.reshape(-1, 1)
-    mass = np.full(PARTICLE_COUNT+1, 10 / PARTICLE_COUNT)
+    mass = np.full(PARTICLE_COUNT+1, 100. / PARTICLE_COUNT)
     mass[0] = 400
     radius = np.full(PARTICLE_COUNT+1, 0.05)
     radius[0] = p_r
@@ -219,48 +223,48 @@ def rings():
 # def escape():
 # 	global Running
 # 	Running = False
-
-turtle.onkeypress(panLeft, "a")
-turtle.onkeyrelease(panRight , "a")
-
-turtle.onkeypress(panRight, "d")
-turtle.onkeyrelease(panLeft , "d")
-
-turtle.onkeypress(panForward, "w")
-turtle.onkeyrelease(panBack , "w")
-
-turtle.onkeypress(panBack, "s")
-turtle.onkeyrelease(panForward , "s")
-
-turtle.onkeypress(panUp, "r")
-turtle.onkeyrelease(panDown , "r")
-
-turtle.onkeypress(panDown, "f")
-turtle.onkeyrelease(panUp , "f")
-
-turtle.onkeypress(panFast, "Shift_L")
-turtle.onkeyrelease(panSlow, "Shift_L")
-
-turtle.onkeypress(rotRight, "Right")
-turtle.onkeyrelease(rotLeft, "Right")
-
-turtle.onkeypress(rotLeft, "Left")
-turtle.onkeyrelease(rotRight, "Left")
-
-turtle.onkeypress(rotUp, "Up")
-turtle.onkeyrelease(rotDown, "Up")
-
-turtle.onkeypress(rotDown, "Down")
-turtle.onkeyrelease(rotUp, "Down")
-
-turtle.onkeypress(rotClockWise, "e")
-turtle.onkeyrelease(rotAntiClock, "e")
-
-turtle.onkeypress(rotAntiClock, "q")
-turtle.onkeyrelease(rotClockWise, "q")
-
-turtle.onkey(escape, "Escape")
-turtle.onkey(pause,  "space")
+#
+# turtle.onkeypress(panLeft, "a")
+# turtle.onkeyrelease(panRight , "a")
+#
+# turtle.onkeypress(panRight, "d")
+# turtle.onkeyrelease(panLeft , "d")
+#
+# turtle.onkeypress(panForward, "w")
+# turtle.onkeyrelease(panBack , "w")
+#
+# turtle.onkeypress(panBack, "s")
+# turtle.onkeyrelease(panForward , "s")
+#
+# turtle.onkeypress(panUp, "r")
+# turtle.onkeyrelease(panDown , "r")
+#
+# turtle.onkeypress(panDown, "f")
+# turtle.onkeyrelease(panUp , "f")
+#
+# turtle.onkeypress(panFast, "Shift_L")
+# turtle.onkeyrelease(panSlow, "Shift_L")
+#
+# turtle.onkeypress(rotRight, "Right")
+# turtle.onkeyrelease(rotLeft, "Right")
+#
+# turtle.onkeypress(rotLeft, "Left")
+# turtle.onkeyrelease(rotRight, "Left")
+#
+# turtle.onkeypress(rotUp, "Up")
+# turtle.onkeyrelease(rotDown, "Up")
+#
+# turtle.onkeypress(rotDown, "Down")
+# turtle.onkeyrelease(rotUp, "Down")
+#
+# turtle.onkeypress(rotClockWise, "e")
+# turtle.onkeyrelease(rotAntiClock, "e")
+#
+# turtle.onkeypress(rotAntiClock, "q")
+# turtle.onkeyrelease(rotClockWise, "q")
+#
+# turtle.onkey(escape, "Escape")
+# turtle.onkey(pause,  "space")
 
 
 if __name__ == '__main__':

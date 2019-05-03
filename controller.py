@@ -18,7 +18,14 @@ def get_flag_if_changed(flag, ignore=False):
     If ignore is True, then the value is returned regardless of it
     has been changed.
     """
-    return (change_flags[flag] or None) and controller_flags[flag]
+    # out = (change_flags[flag] or None) and controller_flags[flag]
+    # if out is not None: change_flags[flag] = False
+    out = controller_flags[flag]
+    if change_flags[flag] or ignore:
+        change_flags[flag] = False
+        return out
+    else:
+        return None
     # if change_flags[flag] or ignore:
     #     change_flags[flag] = False
     #     return controller_flags[flag]
@@ -144,3 +151,47 @@ def escape():
 
 def pause():
     set_flag('sim_paused', not controller_flags['sim_paused'])
+
+#
+#
+# turtle.onkeypress(panLeft, "a")
+# turtle.onkeyrelease(panRight , "a")
+#
+# turtle.onkeypress(panRight, "d")
+# turtle.onkeyrelease(panLeft , "d")
+#
+# turtle.onkeypress(panForward, "w")
+# turtle.onkeyrelease(panBack , "w")
+#
+# turtle.onkeypress(panBack, "s")
+# turtle.onkeyrelease(panForward , "s")
+#
+# turtle.onkeypress(panUp, "r")
+# turtle.onkeyrelease(panDown , "r")
+#
+# turtle.onkeypress(panDown, "f")
+# turtle.onkeyrelease(panUp , "f")
+#
+# turtle.onkeypress(panFast, "Shift_L")
+# turtle.onkeyrelease(panSlow, "Shift_L")
+#
+# turtle.onkeypress(rotRight, "Right")
+# turtle.onkeyrelease(rotLeft, "Right")
+#
+# turtle.onkeypress(rotLeft, "Left")
+# turtle.onkeyrelease(rotRight, "Left")
+#
+# turtle.onkeypress(rotUp, "Up")
+# turtle.onkeyrelease(rotDown, "Up")
+#
+# turtle.onkeypress(rotDown, "Down")
+# turtle.onkeyrelease(rotUp, "Down")
+#
+# turtle.onkeypress(rotClockWise, "e")
+# turtle.onkeyrelease(rotAntiClock, "e")
+#
+# turtle.onkeypress(rotAntiClock, "q")
+# turtle.onkeyrelease(rotClockWise, "q")
+#
+# turtle.onkey(escape, "Escape")
+# turtle.onkey(pause,  "space")
