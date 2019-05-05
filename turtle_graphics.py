@@ -1,3 +1,9 @@
+# The graphics module for drawing a rendering of a simulation.
+# This module should import functions from the controller
+# and from args_parser as necessary, and link relevant functions
+# to user controls
+
+
 import turtle
 from args_parser import *
 from controller import *
@@ -59,7 +65,7 @@ def draw_all(x, y, major, minor, angle, fill = [0,0,0],
     centre_array = np.array([x, y]).transpose()
 
     # if (mag != None): mag += MAG_SHIFT
-    if (intensity != None) and False:
+    # if (intensity != None) and False:
         # This uses Rayleigh Criterion to determine the width of the diffraction 'flare'
         # ie, an 'Airy disk'. Using this it is then sufficient to set the intensity
         # of the centre to 100%, and the edge of the disk to 0%, and then have a linear
@@ -76,16 +82,16 @@ def draw_all(x, y, major, minor, angle, fill = [0,0,0],
         # (since we wouldn't be working with a point source for very bright sources).
         # Assume that each sucessive maximum is (AIRY_RATIO) the intensity of
         # the previous
-        intensity = EXPOSURE * getIntensity(mag)
-        tempDiffRadius = DIFFRACTION_RADIUS
-        flareWidth = (AIRY_COEFF * log(MIN_VISIBLE_INTENSITY / intensity)) * tempDiffRadius
+        # intensity = EXPOSURE * getIntensity(mag)
+        # tempDiffRadius = DIFFRACTION_RADIUS
+        # flareWidth = (AIRY_COEFF * log(MIN_VISIBLE_INTENSITY / intensity)) * tempDiffRadius
 
-        if (lowestApparentMag == None):
-            lowestApparentMag = mag
-        elif (lowestApparentMag and mag < lowestApparentMag):
-            lowestApparentMag = mag
-        elif (points <= 2 and mag == None):
-            fill = [1, 1, 1]
+        # if (lowestApparentMag == None):
+        #     lowestApparentMag = mag
+        # elif (lowestApparentMag and mag < lowestApparentMag):
+        #     lowestApparentMag = mag
+        # elif (points <= 2 and mag == None):
+        #     fill = [1, 1, 1]
 
     if box and False:
         # box 'inner' radius, ie half the width of a side

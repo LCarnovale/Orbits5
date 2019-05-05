@@ -1,5 +1,6 @@
 # Calculates positions of particles on screen
 import numpy as np
+import sim
 import math
 
 class CameraError(Exception):
@@ -121,24 +122,41 @@ class Camera:
 
 
 
-    def render(self, buffer=None, frame=0):
+    def render(self, source=None, frame=0):
         """
         Calculate screen position of particles in a system or a frame
         from a buffer.
 
-        If buffer is given it should be a Buffer object. The first frame
-        will be rendered, unless a frame number is given.
-        The buffer MUST have at least position, radius and active.
+        source:
+            Can be a system, simulation or buffer frame. Must have attributes
+            for active, pos and radius, stemming from a System class.
+            If None (default), then the camera's attached Simulation object
+            is used instead.
+
+        frame:
+            Default 0, the desired frame to access in the buffer.
 
         If no buffer is given, the positions as they exist in self.sim.sys will
         be rendered.
 
         """
-        if buffer:
+        if source:
             # frame_data = buffer[frame]
-            active = buffer['active'][frame]
-            radius = buffer['radius'][frame][active]
-            pos = buffer['pos'][frame][active]
+            # active = buffer.active'][frame]
+            # radius = buffer.radius'][frame][active]
+            # pos = buffer['pos[frame][active]
+            if type(source) == sim.Buffer:
+                active = source.active[frame]
+                pos = source.pos[frame][active]
+                radius = source.radius[frame][active]
+            else:
+                pos = source.pos
+                radius = source.radius
+            if (np.shape(pos)[1] != 3 or
+                len(np.shape(radius)) != 1):
+                print(pos.shape, radius.shape)
+                raise CameraError
+
         else:
             pos = self._sim.pos
             radius = self._sim.radius

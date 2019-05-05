@@ -1,4 +1,4 @@
-from tkinter import *
+# from tkinter import *
 import time
 import loadSystem
 import sys
@@ -10,9 +10,15 @@ from sim import Simulation, System
 from camera import Camera
 from controller import *
 
-from turtle_drawing import *
+from turtle_graphics import *
 from args_parser import *
 import physics_functions
+
+from physics_functions import GravityNewtonian
+FORCE_F = GravityNewtonian
+from sim_funcs import leapfrog_init, leapfrog_step
+INIT_F = leapfrog_init
+STEP_F = leapfrog_step
 
 def main():
     print("Orbits5 Demonstration")
@@ -25,21 +31,22 @@ def main():
         pause()
     if PRESET == '1':
         Sim = simple_system()
-        B = Sim.buffer(1)
+        Sim.buffer(1)
+        track_delta = True
     elif PRESET == '2':
-        B, Sim = big_buffer(N=PARTICLE_COUNT, frames=500)
+        _, Sim = big_buffer(N=PARTICLE_COUNT, frames=500)
         track_delta = True
     elif PRESET == '3':
         from sim import small_galaxy
         Sim, Sys = small_galaxy(N=PARTICLE_COUNT)
-        if args['-d'][-1]:
-            Sim.t_step = args['-d'][1]
-        # B = Sim.buffer(50, n=4, verb=True)
+        track_delta = True
     elif PRESET == '4':
         Sim = rings()
-        B = Sim.buffer(300, verb=True, n=4, append_buffer=True)
+        Sim.buffer(300, verb=True, n=4, append_buffer=True)
         track_delta = True
         # Rings around a planet
+    if args['-d'][-1]:
+        Sim.t_step = args['-d'][1]
 
     camera = Camera(Sim, pos=np.array([40., 0, 40]), look=np.array([-1., 0, -1]), screen_depth=1000)
     camera.set_X_Y_axes(new_Y = np.array([-1., 0, 1]))
@@ -73,7 +80,10 @@ def main():
         else:
             render = camera.render()
         end = time.time()
-        print(f"Buffer: {Sim.stored} Size: {Sim.sys.N} Time: {1000*(end-start):.3f} ms   ", end = '\r'); sys.stdout.flush()
+        print(f"\
+Buffer: {Sim.stored} Size: {Sim.sys.N} \
+Time: {1000*(end-start):.3f} ms"+' '*20, end = '\r')
+        sys.stdout.flush()
         # camera.look_at(lock)
 
         draw_all(*render)
@@ -98,12 +108,11 @@ def main():
         # camera.pos -= CoM.copy()
         # CoM = Sim.sys.mass.reshape(-1, 1) * Sim.sys.pos
         # CoM = np.mean(CoM, axis=0)
-        if track_delta: camera.pos += np.mean(Sim.sys.pos_delta, axis=0)
+        if track_delta:
+            camera.pos += np.mean(
+                Sim.pos_delta * Sim.mass.reshape(-1, 1) / np.sum(Sim.mass), 
+            axis=0)
 
-        # print(camera.vel)
-        # delta = Sim.sys.pos_delta[lock]
-        # camera.pos += delta
-        # camera.vel += Sim.sys.vel[lock]
         camera.step(1.)
         frame_update()
     print()
@@ -111,7 +120,6 @@ def main():
         # print("f", end = '')
 
 def simple_system():
-    from physics_functions import GravityNewtonian as gfunc
     p1 = np.array([0, 0, 0], dtype=float)
     p2 = np.array([10, 0, 0], dtype=float)
     p3 = np.array([11, 0, 0], dtype=float)
@@ -120,7 +128,7 @@ def simple_system():
     r  = np.array([1, 0.2, 0.01, 1])[S]
     m = np.array([100, 10, 1, 0.2])[S]
     Sys = System(np.array([p1, p2, p3, p4])[S], velocity=0.0, mass=m, radius=r)
-    Sim = Simulation(Sys, gfunc, t_step=0.01)
+    Sim = Simulation(Sys, FORCE_F, t_step=0.01, step_func=STEP_F, init_func=INIT_F)
 
     from physics_functions import circularise
     circularise(Sys, 1, 0, Sim.func, [0, 0, 1])
@@ -131,7 +139,7 @@ def simple_system():
 
 def rings():
     physics_functions.GRAVITATIONAL_CONSTANT = args['-G'][1]
-    from physics_functions import GravityNewtonian as gfunc
+    # from physics_functions import GravityNewtonian as FORCE_F
     planet = [0., 0., 0.]; p_r = 10.
     rand_angle = np.random.random(PARTICLE_COUNT) * np.pi * 2
     rand_dist  = np.random.random(PARTICLE_COUNT) * 10 + 13
@@ -145,7 +153,7 @@ def rings():
     C = physics_functions.circularise
     pos = np.array([planet, *rand_p])
     Sys = System(pos, mass=mass, radius=radius, velocity=0.)
-    Sim = Simulation(Sys, gfunc, t_step=0.001)
+    Sim = Simulation(Sys, FORCE_F, t_step=0.001)
     for i in range(1, PARTICLE_COUNT+1):
         C(Sys, i, 0, Sim.func, [0, 0, 1])
     Sys.pos[0] *= 0.
@@ -153,118 +161,7 @@ def rings():
 
     return Sim
 
-
-
-
-
-# Running = True
-# rotate = [0, 0, 0]
-# pan = [0, 0, 0, 1]
-# shiftL = False
-#
-# def panRight():
-# 	if pan[0] < 1:
-# 		pan[0] += 1
-#
-# def panLeft():
-# 	if pan[0] > - 1:
-# 		pan[0] -= 1
-#
-# def panBack():
-# 	if pan[2] > - 1:
-# 		pan[2] -= 1
-#
-# def panForward():
-# 	if pan[2] < 1:
-# 		pan[2] += 1
-#
-# def panDown():
-# 	if pan[1] > - 1:
-# 		pan[1] -= 1
-#
-# def panUp():
-# 	if pan[1] < 1:
-# 		pan[1] += 1
-#
-# def panFast():
-# 	global shiftL
-# 	shiftL = True
-# 	pan[3] = 15
-#
-# def panSlow():
-# 	global shiftL
-# 	shiftL = False
-# 	pan[3] = 1
-#
-# def rotRight():
-# 	if rotate[0] < 1:
-# 		rotate[0] = rotate[0] + 1
-#
-# def rotLeft():
-# 	if rotate[0] > -1:
-# 		rotate[0] = rotate[0] - 1
-#
-# def rotDown():
-# 	if rotate[1] < 1:
-# 		rotate[1] += 1
-#
-# def rotUp():
-# 	if rotate[1] > -1:
-# 		rotate[1] -= 1
-#
-# def rotAntiClock():
-# 	if rotate[2] < 1:
-# 		rotate[2] += 1
-#
-# def rotClockWise():
-# 	if rotate[2] > -1:
-# 		rotate[2] -= 1
-#
-# def escape():
-# 	global Running
-# 	Running = False
-#
-# turtle.onkeypress(panLeft, "a")
-# turtle.onkeyrelease(panRight , "a")
-#
-# turtle.onkeypress(panRight, "d")
-# turtle.onkeyrelease(panLeft , "d")
-#
-# turtle.onkeypress(panForward, "w")
-# turtle.onkeyrelease(panBack , "w")
-#
-# turtle.onkeypress(panBack, "s")
-# turtle.onkeyrelease(panForward , "s")
-#
-# turtle.onkeypress(panUp, "r")
-# turtle.onkeyrelease(panDown , "r")
-#
-# turtle.onkeypress(panDown, "f")
-# turtle.onkeyrelease(panUp , "f")
-#
-# turtle.onkeypress(panFast, "Shift_L")
-# turtle.onkeyrelease(panSlow, "Shift_L")
-#
-# turtle.onkeypress(rotRight, "Right")
-# turtle.onkeyrelease(rotLeft, "Right")
-#
-# turtle.onkeypress(rotLeft, "Left")
-# turtle.onkeyrelease(rotRight, "Left")
-#
-# turtle.onkeypress(rotUp, "Up")
-# turtle.onkeyrelease(rotDown, "Up")
-#
-# turtle.onkeypress(rotDown, "Down")
-# turtle.onkeyrelease(rotUp, "Down")
-#
-# turtle.onkeypress(rotClockWise, "e")
-# turtle.onkeyrelease(rotAntiClock, "e")
-#
-# turtle.onkeypress(rotAntiClock, "q")
-# turtle.onkeyrelease(rotClockWise, "q")
-#
-# turtle.onkey(escape, "Escape")
-# turtle.onkey(pause,  "space")
+# def gas_cloud(N=500):
 
 
 if __name__ == '__main__':

@@ -1,7 +1,11 @@
 import numpy as np
+import sim_funcs
+                      # leapfrog_step, leapfrog_init,                           \
+                      # kill_conserve_mass_momentum, test_mass
 # import physics_functions
 
 DELETE_FORCE_LOOP = True
+PRINT_BUFFER_INLINE = False
 
 def main():
 
@@ -28,6 +32,16 @@ class SystemError(SimulationError):
         if not msg:
             msg = 'A System error has occured'
         super().__init__(msg=msg, system=system)
+
+class BufferError(Exception):
+    def __init__(self, msg=None, buffer=None):
+        if not msg:
+            msg = 'A Buffer error has occured'
+        if buffer:
+            msg += f'\nBuffer: {buffer}'
+
+        super().__init__(msg)
+
 
 
 
@@ -69,6 +83,7 @@ class System:
         self._pos = np.asarray(position).astype(np.float64)
         self._prev_pos = None # Used to get the change in position of a particle
                               # after a step
+        self._pos_delta = np.zeros(self._pos.shape, dtype=np.float64)
         if np.isscalar(velocity) and velocity is not None:
             velocity = np.full(position.shape, velocity, dtype=np.float64)
         self._vel = velocity
@@ -88,16 +103,24 @@ class System:
         s = f'<System: N = {self.N} (+{len(self.active) - self.N} dead), dim = {self.dim}>'
         return s
 
-    def __getattr__(self, attr):
+    def __getattr__(self, attr, masked=True):
         """
         This can be used to safely call any field out of pos, vel, mass, radius and info
+        Set masked=True to filter output with the mast (default operation for
+        basically all attributes/methods of the class),
+        or set masked=False to return the full arrays.
+
+        Intended to be used through sys.get('attr', masked=[True|False]).
         """
+        # if masked:
+        m = self.set_active_mask(masked)
         if attr in self.info:
             r = self.info[attr]
         elif attr in dir(self):
             r = self.__getattribute__(attr) # Be careful of recursive calls here!!!
         else:
             raise AttributeError(f"{attr} is not an attribute of 'System' nor is it in self.info")
+        self.set_active_mask(m)
         return r
 
     def __getitem__(self, slice):
@@ -120,7 +143,13 @@ class System:
         return System(new_pos, new_vel, new_mass, new_radius, new_info)
 
 
-
+    def get(self, attr, masked=True):
+        """
+        Can be used instead of implicitly or explicitly calling
+        self.__getattr__(), and has the option of applying the active
+        mask or not.
+        """
+        return self.__getattr__(attr, masked)
 
     def set_active_mask(self, newVal=None):
         """
@@ -135,12 +164,12 @@ class System:
         If newVal provided, returns the original value,
         otherwise returns the new value.
         """
-        if newVal is not None:
-            self._mask_enabled = not self._mask_enabled
+        if newVal is None:
+            self._mask_enabled = (not self._mask_enabled)
             return self._mask_enabled
         else:
-            oldVal = self._mask_enabled
-            self._mask_enabled = newVal
+            oldVal = (self._mask_enabled is True)
+            self._mask_enabled = (newVal is True)
             return oldVal
 
     def add_info(self, key, array):
@@ -152,8 +181,8 @@ class System:
     def add_particle(self, position, velocity=None, mass=None, radius=None):
         """
         Requires a value for all arguments parsed when the object was created,
-        including a dict for the new info entry, (the dict that should be returned
-        by info[i] for the new i), if info was provided to __init__().
+        including a dict for the new info entry, (the dict that should be
+        returned by info[i] for the new i), if info was provided to __init__().
         """
         def check_dim(arr_self, arr_new):
             try:
@@ -163,15 +192,21 @@ class System:
 
             return np.alen(arr_self[0]) == np.alen(arr_new)
         def raise_dim_err(s, given, wanted=self._pos):
-            raise SystemError(msg=f"Dimension mismatch in {s} for adding particle \n"  \
-                                + f"Wanted {np.alen(wanted[0])}, got {np.alen(given)}", system=self)
+            raise SystemError(
+                msg=f"""
+Dimension mismatch in {s} for adding particle \n
+Wanted {np.alen(wanted[0])}, got {np.alen(given)}""",
+                system=self)
 
         def raise_arg_err(s, wanted=True):
             if wanted:
-                raise SystemError(msg=f"Expected an argument for '{s}'", system=self)
+                raise SystemError(msg=f"Expected an argument for '{s}'",
+                system=self)
             else:
-                raise SystemError(msg=f"Given argument for '{s}' that was not initially given to __init__",
-                                  system=self)
+                raise SystemError(
+                    msg=f"Given argument for '{s}' that was not \
+initially given to __init__",
+                    system=self)
 
         if not check_dim(self._pos, position):
             raise_dim_err('position', position)
@@ -185,13 +220,15 @@ class System:
 
         # set and check the other arguments:
         for attr, arg_given, label in zip(attrs, kwargs_given, labels):
-            arg_self = self.__getattribute__(attr)
+            arg_self = self.get(attr)
             if arg_given:
                 if arg_self is not None:
                     if not check_dim(arg_self, arg_given):
                         raise_dim_err(label, arg_given, wanted=arg_self)
 
-                    self.__setattr__(attr, np.append(arg_self, [arg_given], axis=0))
+                    self.__setattr__(
+                        attr,
+                        np.append(arg_self, [arg_given], axis=0))
                 else:
                     raise_arg_err(label, False)
             else:
@@ -248,16 +285,17 @@ class System:
     def kill_collisions(self, test, kill_func):
         """
         Requires a test function 'test', and a kill function 'kill_func':
-        test(sys, A, B) -> -1|1
+        test(sys, A, B) -> [-1|1]
             Should return 1 if B is to be killed, or -1 if A is to be killed.
             The function will be given the system, and the indexes of A and B.
             *** A and B may be 1D arrays
-        kill_func(sys, A, B) -> -1 or particle index
+        kill_func(sys, A, B) -> [-1 | particle index]
             Should make any desired modifications
             (such as changing mass, velocity, etc.) to A, as a result
             a of 'killing' B. ie, A is the survivor of the collision between
             A and B.
-            *** If B is to be actually killed / inactivated, the function should return B
+            *** If B is to be actually killed / inactivated, the function
+                should return B
 
         Returns the number of particles 'deactivated'.
         """
@@ -332,19 +370,25 @@ class System:
         """
         self._prev_pos = self._pos.copy()
 
+    def set_pos_delta(self, delta):
+        """Used to change the ._pos_delta array."""
+        self._pos_delta[self.get_mask] = delta.copy()
+
     """
     Properties
     """
     @property
     def prev_pos(self):
         if np.any(self._prev_pos == None):
-            raise SimulationError("Attempted to get previous position from System without first setting it")
+            raise SimulationError("""
+Attempted to get previous position from System without first setting it""")
         else:
             return self._prev_pos[self.get_mask]
 
     @property
     def pos_delta(self):
-        return self.pos - self.prev_pos
+        return self._pos_delta[self.get_mask]
+        # return self.pos - self.prev_pos
 
 
     @property
@@ -378,12 +422,12 @@ class System:
 
     @property
     def N(self):
-        return self._pos[self.get_mask].shape[0]
+        return len(self._pos[self.active])
 
     @property
     def Nfull(self):
         # Same as N but always ignores mask
-        return self._pos.shape[0]
+        return len(self._pos)
 
     @property
     def dim(self):
@@ -453,73 +497,12 @@ class System:
         return locals()
     info = property(**info())
 
-def leapfrog_init(sys, f_func, t_step):
-    # Go a half step backwards:
-    F = f_func(sys)
-    A = F / sys.mass.reshape(sys.N, 1)
-    sys.vel = sys.vel - 1/2 * t_step * A
 
-    return sys
-DEFAULT_INIT = leapfrog_init
+DEFAULT_INIT = sim_funcs.leapfrog_init
+DEFAULT_STEP = sim_funcs.leapfrog_step
+DEFAULT_TEST = sim_funcs.test_mass
+DEFAULT_KILL = sim_funcs.kill_conserve_mass_momentum
 
-def test_mass(sys, A, B):
-    """
-    Favours a more massive particle in collisions
-    Returns 1 if B is to be killed,
-    else -1 if A is.
-    """
-    massA = sys.mass[A]
-    massB = sys.mass[B]
-    r = np.zeros(np.shape(A), dtype=int)
-    r[massA >  massB] = 1
-    r[massA <= massB] = -1
-    return r
-DEFAULT_TEST = test_mass
-
-warning_flag = False
-def kill_conserve_mass_momentum(sys, A, B):
-    """
-    Modifies sys where A survives a collision between A and B
-    Conserves mass, momentum and centre of mass.
-    """
-    global warning_flag
-    # print(f'{A} killing {B}')
-    pA = sys.pos[A];  pB = sys.pos[B]
-    mA = sys.mass[A]; mB = sys.mass[B]
-    vA = sys.vel[A];  vB = sys.vel[B]
-
-    # Convert 1d mass arrays into 2d Nxdim arrays
-    # to allow elementwise operations with vector arrays
-    mA_d = mA.reshape(-1, 1)
-    mA_d = mA_d.repeat(sys.dim, axis=-1)
-    mB_d = mB.reshape(-1, 1)
-    mB_d = mB_d.repeat(sys.dim, axis=-1)
-
-    net_p = mA_d * vA + mB_d * vB
-    m_new = mA + mB
-    v_new = net_p / (mA_d + mB_d)
-    CoM = (pA * mA_d + pB * mB_d) / (mA_d + mB_d)
-
-    # Get initial density:
-    init_density_inverse = (4/3 * np.pi * sys.radius[A]**3) / mA
-    new_radius = init_density_inverse * m_new
-    new_radius = (new_radius * 3/4 / np.pi)**(1/3)
-
-    sys.set_pos(A, CoM)
-    sys.set_vel(A, v_new)
-    sys.set_mass(A, m_new)
-    sys.set_radius(A, new_radius)
-
-
-    if not (sys.mass[A] == m_new).all() and not warning_flag:
-        print("Warning: simultaneous collisions involving a single particle may be occuring.")
-        print("These collisions may result in unexpected behaviour.")
-        print("Turn on the DELETE_FORCE_LOOP option to avoid this.")
-        warning_flag = True
-    return B# sys.kill_particle(B)
-    # return sys
-
-DEFAULT_KILL = kill_conserve_mass_momentum
 
 class Buffer:
     """
@@ -531,7 +514,13 @@ class Buffer:
         self._dict = buffer_dict
 
     def __str__(self):
-        return f'<Buffer length {len(self)}, fields: {[k for k in self._dict]}>'
+        if PRINT_BUFFER_INLINE:
+            fields_ = '\n    '.join(['']+[k for k in self._dict]) + "\n"
+        else:
+            fields_ = ','.join([k for k in self._dict])
+        return (
+            f"<Buffer length {len(self)}, fields: [{fields_}]>"
+        )
 
     def __add__(self, buffer):
         new = self.copy()
@@ -554,17 +543,26 @@ class Buffer:
     def __getitem__(self, s):
         if type(s) in [int, slice]:
             out = {}
-            for k in self._dict:
-                val = self._dict[k][s].copy()
-                if type(s) != slice:
-                    out[k] = np.array([val])
-                else:
-                    out[k] = val
+            try:
+                for k in self._dict:
+                    val = self._dict[k][s].copy()
+                    if type(s) != slice:
+                        out[k] = np.array([val])
+                    else:
+                        out[k] = val
+            except IndexError:
+                raise BufferError(
+                    f"Frame {s} out of bounds for Buffer of length {len(self)}",
+                    self
+                )
             return Buffer(out)
         elif s in self._dict:
-            return self._dict[s]
+            out = self._dict[s]
+            return out
         else:
             raise KeyError
+    def __getattr__(self, s):
+        return self.__getitem__(s)
 
     def __len__(self):
         l = len(next(iter(self._dict.values())))
@@ -595,17 +593,27 @@ class Buffer:
 
 class Simulation:
     def __init__(self, system, func, t_step=1, camera=None, tracked_value=None,
-                test_func=DEFAULT_TEST, init_func=DEFAULT_INIT,
-                kill_func=DEFAULT_KILL):
+                 test_func=DEFAULT_TEST, init_func=DEFAULT_INIT,
+                 step_func=DEFAULT_STEP, kill_func=DEFAULT_KILL):
         """
         A simulation of a system
         system: System object (Must have mass)
-        func:   Calculate the force on particles in system,
-                from the information in system.
-                func must take exactly one argument, a System object.
-                func must return an array of vectors, representing force,
-                where:
-                    func(sys).shape == sys.pos.shape
+        func:
+            Calculate the force on particles in system,
+            from the information in system.
+            func must take exactly one argument, a System object.
+            func must return an array of vectors, representing force,
+            where:
+                func(sys).shape == sys.pos.shape
+        test_func, kill_func:
+            Functions to determine the outcome of collisions, as outlined
+            in the System class.
+        init_func, step_func:
+            Both must take (sys:<System>, f_func:(same as func above), t_step)
+            and make changes to system to set up an integration method
+            or perform a step.
+            ** The init func must be called manually, ideally before the first
+               .step() call
         """
         self._sys = system
         self._func = func
@@ -614,6 +622,7 @@ class Simulation:
         self._test_func = test_func
         self._init_func = init_func
         self._kill_func = kill_func
+        self._step_func = step_func
         self._pause = False
         self._buffer = None
         self._last_frame = None
@@ -627,16 +636,12 @@ class Simulation:
             if self._last_frame:
                 return self._last_frame[attr][0]
             else:
-                return self._buffer[attr][0]
+                out = self._buffer[attr][0]
+                if not np.isscalar(out):
+                    out = out[self._buffer.active[0]]
+                return out
         else:
             return self._sys.__getattr__(attr)
-            # try:
-            # except KeyError:
-
-                # try:
-                #     return
-        # else:
-        #     return
 
 
     def buffer(self, buffer_n, t_step=None, buffer_attrs=None, append_buffer=True,
@@ -677,25 +682,17 @@ class Simulation:
         output = {}
         m = self._sys.set_active_mask(False)
         for attr in buffer_attrs:
-            attr_val = self._sys.__getattr__(attr)
+            attr_val = self._sys.get(attr, masked=False)
             try:
                 dtype_ = attr_val.dtype
             except:
-                dtype_ = float
+                dtype_ = type(attr_val)
             output[attr] = np.zeros((buffer_n,) + np.shape(attr_val), dtype=dtype_)
-        self._sys.set_active_mask(m)
+        # self._sys.set_active_mask(m)
 
         def fill_vals(i):
             for attr in buffer_attrs:
-                if attr != 'active':
-                    mask = self._sys.active
-                else:
-                    mask = slice(0, None) # index full array
-                try:
-                    output[attr][i][mask] = self._sys.__getattr__(attr).copy()
-                except:
-                    # try without copying (scalar values might not allow copying)
-                    output[attr][i] = self._sys.__getattr__(attr)
+                output[attr][i] = self._sys.get(attr, masked=False)
 
 
 
@@ -718,7 +715,7 @@ class Simulation:
     def init_sim(self):
         self._sys = self._init_func(self._sys, self._func, self._t_step)
 
-    def step(self, t_step = None, n=1, collisions=True, mode='every', set_prev=True,
+    def step(self, t_step = None, n=1, collisions=True, mode='every', set_delta=True,
             pull_buffer=True, ignore_pause=False):
         """
         If the sim is not paused,
@@ -732,7 +729,7 @@ class Simulation:
         mode: Default 'every', makes collision checking happen every step. If set to 'once',
             collisions are checked after the final step.
 
-        set_prev: If True, call sys.set_prev_pos() before running the first step.
+        set_delta: If True, call sys.set_pos_delta() after the last step.
             Will only be called once, not per step.
 
         pull_buffer: If True, a frame from the attached buffer will be pulled if it exists.
@@ -747,7 +744,6 @@ class Simulation:
         if t_step is None:
             t_step = self._t_step
 
-        if set_prev: self._sys.set_prev_pos()
 
         if self._pause and not ignore_pause:
             if pull_buffer:
@@ -764,16 +760,25 @@ class Simulation:
                     self._last_frame = None
                     self._buffer = None
 
+        if set_delta: 
+            prev_pos_full = self._sys.get('pos', False)
 
         for i in range(n):
-            F = self._func(self._sys)
-            A = F / self._sys.mass.reshape(self._sys.N, 1)
-            self._sys.vel = self._sys.vel + t_step * A
-            self._sys.pos = self._sys.pos + t_step * self._sys.vel
+            self._step_func(self._sys, self._func, self._t_step)
+            # F = self._func(self._sys)
+            # A = F / self._sys.mass.reshape(self._sys.N, 1)
+            # self._sys.vel = self._sys.vel + t_step * A
+            # self._sys.pos = self._sys.pos + t_step * self._sys.vel
             if collisions and mode == 'every':
                 self.step_collisions()
         if collisions and mode == 'once':
             self.step_collisions()
+
+        if set_delta:
+            delta = self._sys.get('pos', False) - prev_pos_full
+            delta = delta[self._sys.get_mask]
+            self._sys.set_pos_delta(delta)
+
         return None
 
 
@@ -807,13 +812,13 @@ class Simulation:
     @property
     def stored(self):
         return self._buffer
-
-    # @property
-    # def pos(self):
-    #     if self._last_frame:
-    #         return self._last_frame['pos'][0]
-    #     else:
-    #         return self.sys.pos
+    
+    @property
+    def prepped(self):
+        if self._last_frame != None:
+            return self._last_frame
+        else:
+            return self._sys
 
     @property
     def sys(self):
@@ -839,8 +844,20 @@ def big_buffer(N=100, frames=100, show=False):
         gfunc
     except:
         from physics_functions import GravityNewtonian as gfunc
-    c =      np.array([[np.cos(x)*10*np.random.random(), np.sin(x)*10+np.random.normal(), 0.1*np.random.normal()] for x in np.linspace(0, 2*np.pi, N, False)])
-    v = 40 * np.array([[np.sin(x)*5+np.random.normal(),-np.cos(x)*5+np.random.normal(), np.random.normal()] for x in np.linspace(0, 2*np.pi, N, False)])
+    c =      np.array([
+        [
+            np.cos(x) * 10 * np.random.random(),
+            np.sin(x)*10 + np.random.normal(),
+            0.1 * np.random.normal()
+        ] for x in np.linspace(0, 2 * np.pi, N, False)
+    ])
+    v = 40 * np.array([
+        [
+            np.sin(x)*5 + np.random.normal(),
+           -np.cos(x)*5 + np.random.normal(),
+            np.random.normal()
+        ] for x in np.linspace(0, 2 * np.pi, N, False)
+    ])
     # p = np.random.random((N, 3)) * 10
     # v = np.random.random((N, 3))
     r = np.ones(N) * 5e-2

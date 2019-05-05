@@ -39,7 +39,7 @@ def circularise(sys, A, B, f_func, axis):
     # print('=== ===')
     pA, pB = new_sys.pos[0], new_sys.pos[1]
     BA_vec = pA - pB
-    dist = np.linalg.norm(BA_vec, 2)
+    # dist = np.linalg.norm(BA_vec, 2)
     mA = new_sys.mass[0]; mB = new_sys.mass[1]
     vA = new_sys.vel[0];  vB = new_sys.vel[1]
     rMass = mA*mB / (mA + mB)
@@ -81,8 +81,10 @@ def GravityNewtonian(sys):
 
     ### Calculate a tensor for r:
     # Tile the pos array:
-    POS_ALL = np.tile(sys.pos, (sys.N, 1, 1))
+    print("sys.pos:", sys.pos, "N:", sys.N)
+    POS_ALL = np.tile(sys.pos, [sys.N, 1, 1])
     POS_S = np.tile(sys.pos, (1, 1, sys.N)).reshape(POS_ALL.shape)
+    print("sys.pos:", sys.pos, "N:", sys.N)
 
     D = POS_S - POS_ALL # r vector
     D2 = np.linalg.norm(D, 2, axis=-1) # D2 is now an N x N grid of distances (with 0 on diagonals)
