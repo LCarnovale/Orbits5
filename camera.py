@@ -170,7 +170,7 @@ class Camera:
         look_array = np.tile(self._look, (N, 1))
 
         # Get relative position:
-        self_pos = np.tile(self._pos, (N, 1))
+        self_pos = np.tile(self.pos, (N, 1))
         rel_pos  = pos - self_pos
         rel_dist = np.linalg.norm(rel_pos, 2, axis=-1)
         min_idx = np.argmin(rel_dist)

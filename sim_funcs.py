@@ -94,19 +94,21 @@ def kill_conserve_mass_momentum(sys, A, B):
     """
     Modifies sys where A survives a collision between A and B
     Conserves mass, momentum and centre of mass.
+    Requires sys to have mass, velocity, and radius
     """
     global _warning_flag
     # print(f'{A} killing {B}')
     pA = sys.pos[A];  pB = sys.pos[B]
     mA = sys.mass[A]; mB = sys.mass[B]
     vA = sys.vel[A];  vB = sys.vel[B]
+    rA = sys.radius[A]; rB = sys.radius[B]
 
     # Convert 1d mass arrays into 2d Nxdim arrays
     # to allow elementwise operations with vector arrays
     mA_d = mA.reshape(-1, 1)
-    mA_d = mA_d.repeat(sys.dim, axis=-1)
+    # mA_d = mA_d.repeat(sys.dim, axis=-1)
     mB_d = mB.reshape(-1, 1)
-    mB_d = mB_d.repeat(sys.dim, axis=-1)
+    # mB_d = mB_d.repeat(sys.dim, axis=-1)
 
     net_p = mA_d * vA + mB_d * vB
     m_new = mA + mB
@@ -114,14 +116,13 @@ def kill_conserve_mass_momentum(sys, A, B):
     CoM = (pA * mA_d + pB * mB_d) / (mA_d + mB_d)
 
     # Get initial density:
-    init_density_inverse = (4/3 * np.pi * sys.radius[A]**3) / mA
-    new_radius = init_density_inverse * m_new
-    new_radius = (new_radius * 3/4 / np.pi)**(1/3)
+    new_vol = 4/3 * np.pi * (rA**3 + rB**3)
+    new_radius = (new_vol * 3/4 / np.pi)**(1/3)
 
-    sys.set_pos(A, CoM)
-    sys.set_vel(A, v_new)
-    sys.set_mass(A, m_new)
-    sys.set_radius(A, new_radius)
+    sys.set('pos', CoM, index=A)
+    sys.set('vel', v_new, index=A)
+    sys.set('mass', m_new, index=A)
+    sys.set('radius', new_radius, index=A)
 
 
     if not (sys.mass[A] == m_new).all() and not _warning_flag:

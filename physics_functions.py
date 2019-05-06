@@ -66,7 +66,7 @@ def circularise(sys, A, B, f_func, axis):
     vCoM = (mA*vA + mB*vB) / (mA + mB)
     vA_new += vCoM
     vB_new += vCoM
-    sys.set_vel([A,B], [vA_new, vB_new])
+    sys.set('vel', [vA_new, vB_new], index=[A, B])
 
 
 def GravityNewtonian(sys):

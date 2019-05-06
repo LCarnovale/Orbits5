@@ -1,11 +1,14 @@
 import numpy as np
+
 import sim_funcs
+
                       # leapfrog_step, leapfrog_init,                           \
                       # kill_conserve_mass_momentum, test_mass
 # import physics_functions
 
 DELETE_FORCE_LOOP = True
 PRINT_BUFFER_INLINE = False
+DEFAULT_BUFFER_ATTRS = ['pos', 'vel', 'mass', 'radius', 'active', 'N']
 
 def main():
 
@@ -143,26 +146,31 @@ class System:
         return System(new_pos, new_vel, new_mass, new_radius, new_info)
     
     def __setattr__(self, attr, value):
-        try:
-            # print(f"__setattr__({attr}, {value})")
-            masked_attrs = self._masked_attributes
-            if attr in masked_attrs:
-                mask = self.get_mask
-                current = self.get(attr, False)
-                current[mask] = value
-                super().__setattr__(attr, current)
-            else:
-                super().__setattr__(attr, value)
-        except AttributeError:
-            super().__setattr__(attr, value)
+        """Redirect to sys.set(...)"""
+        set_f = super().__getattribute__("set")
+        return set_f(attr, value)
+        # return self.set(attr, value)
+        # try:
+        #     # print(f"__setattr__({attr}, {value})")
+        #     masked_attrs = self._masked_attributes
+        #     if attr in masked_attrs:
+        #         mask = self.get_mask
+        #         current = self.get(attr, False)
+        #         current[mask] = value
+        #         super().__setattr__(attr, current)
+        #     else:
+        #         super().__setattr__(attr, value)
+        # except AttributeError:
+        #     super().__setattr__(attr, value)
 
-    def get(self, attr, masked=True):
+    def get(self, attr, masked=None):
         """
         Used mainly to apply a mask if applicable, otherwise
         handover to the base class's method.
         """
         # Use base classes __getattribute__ for masked attrs and
         # to get the normal output of the attribute:
+        if masked == None: masked = super().__getattribute__('_mask_enabled')
         masked_attrs = super().__getattribute__('_masked_attributes')
         out = super().__getattribute__(attr)
         if attr in masked_attrs and masked:
@@ -170,6 +178,48 @@ class System:
                 mask = super().__getattribute__('get_mask')
                 out = out[mask]
         return out
+    
+    def set(self, attr, values, index=None, masked=None):
+        """
+        Used to set values with similar functionality to get(name, masked)
+        """
+        try:
+            if index == None:
+                index = slice(0, None)
+            if masked == None:
+                masked = self._mask_enabled
+            temp = self.get(attr, False)
+            if masked:
+                masked_attrs = self._masked_attributes
+                mask = self.get_mask
+                if attr in masked_attrs:
+                    temp_ = temp[mask]
+                    temp_[index] = values
+                    temp[mask] = temp_
+                else:
+                    temp[index] = values
+            else:
+                temp[index] = values
+        except AttributeError:
+            super().__setattr__(attr, values)
+        else:
+            super().__setattr__(attr, temp)
+        # try:
+        #         # print(f"__setattr__({attr}, {value})")
+        #     masked_attrs = self._masked_attributes
+        #     if attr in masked_attrs:
+        #         mask = self.get_mask
+        #         current = self.get(attr, False)
+        #         current[mask] = value
+        #         super().__setattr__(attr, current)
+        #     else:
+        #         super().__setattr__(attr, value)
+        # except AttributeError:
+        #     super().__setattr__(attr, value)
+
+                
+
+        
 
     def set_active_mask(self, newVal=None):
         """
@@ -319,7 +369,8 @@ initially given to __init__",
             a of 'killing' B. ie, A is the survivor of the collision between
             A and B.
             *** If B is to be actually killed / inactivated, the function
-                should return B
+                should return B. Deactivating B inside the kill_func can have
+                unpredictable (bad) effects.
 
         Returns the number of particles 'deactivated'.
         """
@@ -328,24 +379,18 @@ initially given to __init__",
         # print(collisions)
         r = test(self, collisions[:,0], collisions[:,1])
         mask = np.array([r < 0, r > 0]).transpose()
-        idx_array = collisions[mask]
+        # idx_array = collisions[mask]
         A = collisions[np.invert(mask)]
         B = collisions[mask]
         kill_list = np.full(len(A), -1)
         if DELETE_FORCE_LOOP:
-            # A = self.active_map[A]
-            # B = self.active_map[B]
-            # _ = self.set_active_mask(False)
             for i, (a, b) in enumerate(zip(A, B)):
-                # a = self.active_map[a]
-                # b = self.active_map[b]
                 kill_list[i] = kill_func(self, a, b)
-            # self.set_active_mask(_)
         else:
             kill_list = kill_func(self, A, B)
         kill_list = np.array(list(set(kill_list)))
         self.kill_particle(kill_list[kill_list>=0])
-        return len(idx_array)
+        return len(collisions)
 
     def remove_dead(self):
         """
@@ -353,38 +398,38 @@ initially given to __init__",
         """
         pass
 
-    def set_pos(self, indexes, values):
-        """
-        Used to reliably set values in self.pos without problems
-        occuring due to masks.
+    # def set_pos(self, indexes, values):
+    #     """
+    #     Used to reliably set values in self.pos without problems
+    #     occuring due to masks.
 
-        Would normally be equivalent to self.pos[indexes] = values
-        but that may not work sometimes due to masks.
-        """
-        indexes = self.active_map[indexes]
-        _p = self._pos
-        _p[indexes] = values
-        np.copyto(self._pos, _p)
+    #     Would normally be equivalent to self.pos[indexes] = values
+    #     but that may not work sometimes due to masks.
+    #     """
+    #     indexes = self.active_map[indexes]
+    #     _p = self._pos
+    #     _p[indexes] = values
+    #     np.copyto(self._pos, _p)
 
-    def set_vel(self, indexes, values):
-        indexes = self.active_map[indexes]
-        _v = self._vel
-        _v[indexes] = values
-        np.copyto(self._vel, _v)
-        # v = self.
-        # v[indexes] = values
+    # def set_vel(self, indexes, values):
+    #     indexes = self.active_map[indexes]
+    #     _v = self._vel
+    #     _v[indexes] = values
+    #     np.copyto(self._vel, _v)
+    #     # v = self.
+    #     # v[indexes] = values
 
-    def set_mass(self, indexes, values):
-        # indexes = self.active_map[indexes]
-        _m = self._mass
-        _m[indexes] = values
-        np.copyto(self._mass, _m)
+    # def set_mass(self, indexes, values):
+    #     # indexes = self.active_map[indexes]
+    #     _m = self._mass
+    #     _m[indexes] = values
+    #     np.copyto(self._mass, _m)
 
-    def set_radius(self, indexes, values):
-        # indexes = self.active_map[indexes]
-        _r = self.radius
-        _r[indexes] = values
-        np.copyto(self.radius, _r)
+    # def set_radius(self, indexes, values):
+    #     # indexes = self.active_map[indexes]
+    #     _r = self.radius
+    #     _r[indexes] = values
+    #     np.copyto(self.radius, _r)
 
 
     def set_prev_pos(self):
@@ -402,6 +447,17 @@ initially given to __init__",
     """
     Properties
     """
+    @property
+    def com(self):
+        """Centre of mass"""
+        if np.any(self.mass == None):
+            return np.mean(self.pos, axis=0)
+        else:
+            return np.sum(
+                self.pos * self.mass.reshape(-1, 1),
+                axis=0
+            ) / np.sum(self.mass)
+    
     @property
     def prev_pos(self):
         if np.any(self._prev_pos == None):
@@ -654,7 +710,7 @@ class Simulation:
                 return self._last_frame[attr][0]
             else:
                 out = self._buffer[attr][0]
-                if not np.isscalar(out):
+                if attr in self._sys._masked_attributes:
                     out = out[self._buffer.active[0]]
                 return out
         elif self._buffer and attr not in self._buffer:
@@ -671,14 +727,15 @@ or the buffer (sim.stored)""")
     def buffer(self, buffer_n, t_step=None, buffer_attrs=None, append_buffer=True,
         verb=False, **step_kwargs):
         """
-        sim.buffer(buffer_n, t_step=sim.t_step, buffer_attrs=['pos', 'vel', 'mass', 'radius'],
+        sim.buffer(buffer_n, t_step=sim.t_step, buffer_attrs=[],
             **step_kwargs ( used by Sim.step() ) )
         --> {x: array, ... for x in buffer_attrs}
 
         Perform buffer_n steps and store the results in a dictionary of arrays.
-
+        buffer_attrs default: ['pos', 'vel', 'mass', 'radius', 'N']
         buffer_attrs should be a list of valid attributes of the system attached
-        to the sim, ie sim.sys.
+        to the sim, ie sim.sys. If buffer_attrs contains '+', then the supplied attrs
+        will be recorded along with the default ones.
 
         if append_buffer is True, any existing buffer will be appended. If the
         existing buffer has different fields recorded, an error is raised.
@@ -693,7 +750,10 @@ or the buffer (sim.stored)""")
         if t_step == None:
             t_step = self.t_step
         if buffer_attrs == None:
-            buffer_attrs = ['pos', 'vel', 'mass', 'radius', 'active', 'N']
+            buffer_attrs = DEFAULT_BUFFER_ATTRS
+        elif "+" in buffer_attrs:
+            buffer_attrs.remove('+')
+            buffer_attrs += DEFAULT_BUFFER_ATTRS
         if append_buffer and self._buffer != None and {*buffer_attrs} != set(self._buffer.keys):
             raise SimulationError(
                 msg="Keys in existing do not match requested buffer_attributes, \ncannot append to the existing buffer."

@@ -3,6 +3,13 @@ import sys
 import time
 import numpy as np
 
+def get_arg_val(arg):
+	return args[arg][1]
+
+def arg_supplied(arg):
+	return args[arg][-1]
+
+
 #############################################################################################################################
 # args:                                                                                                                     #
 # <key> : [<type>, <default value>, <requires parameter>, [<second default value>], [changed]]                              #
@@ -21,6 +28,7 @@ args = {#   [<type>   \/	 <Req.Pmtr>  <Def.Pmtr>
 "-d"  :     [float,	0.025,	True], # Delta time per step
 "-n"  :     [int,   20,		True], # Particle count
 "-p"  :     [str,   "1",	True], # preset
+"-mi" :     [str,   "leapfrog", True], # Method of integration
 "-rn" :     [int,   2,      True], # Power of r (F = -GMm/r^n) for preset 4.5
 "-rt" :     [str,   False,  False,  True], # Run in real time
 "-sp" :     [str,   False,	False,  True], # start paused

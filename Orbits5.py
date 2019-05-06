@@ -6,6 +6,7 @@ import sys
 import numpy as np
 import turtle
 import matplotlib.pyplot as plt
+import sim
 from sim import Simulation, System
 from camera import Camera
 from controller import *
@@ -16,9 +17,14 @@ import physics_functions
 
 from physics_functions import GravityNewtonian
 FORCE_F = GravityNewtonian
-from sim_funcs import leapfrog_init, leapfrog_step
-INIT_F = leapfrog_init
-STEP_F = leapfrog_step
+from sim_funcs import leapfrog_init, leapfrog_step, RK4_init, RK4_step
+mi = get_arg_val("-mi")
+if mi == 'leapfrog':
+    INIT_F = leapfrog_init
+    STEP_F = leapfrog_step
+elif mi == 'RK4':
+    INIT_F = RK4_init
+    STEP_F = RK4_step
 
 def main():
     print("Orbits5 Demonstration")
@@ -26,61 +32,68 @@ def main():
 
     from sim import big_buffer
     physics_functions.GRAVITATIONAL_CONSTANT = args['-G'][1]
-    track_delta = False
+    track_delta = True
+    sim.DEFAULT_BUFFER_ATTRS += ['com']
+    buffer_steps = 1
     if START_PAUSED:
         pause()
     if PRESET == '1':
+        # Simple 3 tier star-planet-moon solar system,
+        # with a 4th stationary object falling into the middle.
         Sim = simple_system()
         Sim.buffer(1)
-        track_delta = True
     elif PRESET == '2':
         _, Sim = big_buffer(N=PARTICLE_COUNT, frames=500)
-        track_delta = True
     elif PRESET == '3':
         from sim import small_galaxy
         Sim, Sys = small_galaxy(N=PARTICLE_COUNT)
-        track_delta = True
     elif PRESET == '4':
-        Sim = rings()
-        Sim.buffer(300, verb=True, n=4, append_buffer=True)
-        track_delta = True
         # Rings around a planet
-    if args['-d'][-1]:
-        Sim.t_step = args['-d'][1]
-
-    camera = Camera(Sim, pos=np.array([40., 0, 40]), look=np.array([-1., 0, -1]), screen_depth=1000)
+        Sim = rings(0.0001)
+        buffer_steps = 20
+        Sim.buffer(300, verb=True, n=buffer_steps, append_buffer=True)
+    else:
+        print(f"Preset {PRESET} does not exist.")
+        return 0
+    if arg_supplied('-d'):
+        Sim.t_step = get_arg_val('-d')
+    Sim.init_sim()
+    camera = Camera(Sim, pos=Sim.com + np.array([40., 0, 40]), look=np.array([-1., 0, -1]), screen_depth=1000)
     camera.set_X_Y_axes(new_Y = np.array([-1., 0, 1]))
 
 
     turtle.listen()
-    # print(F._dict)
-    # F = False
-    CoM = Sim.sys.mass.reshape(-1, 1) * Sim.sys.pos
-    CoM = np.mean(CoM, axis=0)
 
+    # initialise delta for first step before it is calculated
+    com_delta = 0.
     while get_running() is not False:
-        time.sleep(0.02)
-        # print(Sim.sys.N)
+        time.sleep(0.002)
         new_pause = get_pause()
         if new_pause != None:
             Sim.pause(new_pause)
 
-        frame_clear()
         start = time.time()
-        F = Sim.step()
+        com_pre = Sim.com
+
+        F = Sim.step(n=(buffer_steps if Sim.paused else 1))
+
+        com_delta = Sim.com - com_pre
+
+        if track_delta:
+            camera.pos += com_delta
+            # print(camera.pos)
         render = camera.render(F)
         end = time.time()
-        # if F:
-        #     # F being returned means a buffer frame.
-        # else:
-        #     render = camera.render()
         print(f"\
 Buffer: {Sim.stored} Size: {Sim.N} \
 Time: {1000*(end-start):.3f} ms"+' '*20, end = '\r')
         sys.stdout.flush()
         # camera.look_at(lock)
 
-        draw_all(*render)
+        # camera.look_at(Sim.com)
+        # print(com_pre, end = '')
+        # print(Sim.com, end = '')
+
         new_pan = get_pan()
         new_rot = get_rotate()
         if new_rot != None:
@@ -102,17 +115,10 @@ Time: {1000*(end-start):.3f} ms"+' '*20, end = '\r')
         # camera.pos -= CoM.copy()
         # CoM = Sim.sys.mass.reshape(-1, 1) * Sim.sys.pos
         # CoM = np.mean(CoM, axis=0)
-        if track_delta:
-            try:
-                Sim.pos_delta
-            except:
-                pass
-            else:
-                camera.pos += np.mean(
-                    Sim.pos_delta * Sim.mass.reshape(-1, 1) / np.sum(Sim.mass), 
-                axis=0)
 
+        frame_clear()
         camera.step(1.)
+        draw_all(*render)
         frame_update()
     print()
     return Sim
@@ -136,26 +142,30 @@ def simple_system():
     return Sim
 
 
-def rings():
-    physics_functions.GRAVITATIONAL_CONSTANT = args['-G'][1]
-    # from physics_functions import GravityNewtonian as FORCE_F
+def rings(t_step=0.0005):
+    physics_functions.GRAVITATIONAL_CONSTANT = get_arg_val('-G')    # from physics_functions import GravityNewtonian as FORCE_F
     planet = [0., 0., 0.]; p_r = 10.
+    moon   = [32., 0., 0.]; p_m = 2.
     rand_angle = np.random.random(PARTICLE_COUNT) * np.pi * 2
     rand_dist  = np.random.random(PARTICLE_COUNT) * 10 + 13
     rand_p     = np.array([np.cos(rand_angle), np.sin(rand_angle), np.random.normal(scale=0.01, size=PARTICLE_COUNT)]).transpose()
     rand_p    *= rand_dist.reshape(-1, 1)
-    mass = np.full(PARTICLE_COUNT+1, 100. / PARTICLE_COUNT)
+    mass = np.full(PARTICLE_COUNT+2, 20. / PARTICLE_COUNT)
     mass[0] = 400
-    radius = np.full(PARTICLE_COUNT+1, 0.05)
+    mass[-1] = 50
+    radius = np.full(PARTICLE_COUNT+2, 0.05)
     radius[0] = p_r
+    radius[-1] = p_m
 
     C = physics_functions.circularise
-    pos = np.array([planet, *rand_p])
+    pos = np.array([planet, *rand_p, moon])
     Sys = System(pos, mass=mass, radius=radius, velocity=0.)
-    Sim = Simulation(Sys, FORCE_F, t_step=0.001)
-    for i in range(1, PARTICLE_COUNT+1):
+    Sim = Simulation(Sys, FORCE_F, t_step=t_step)
+    C(Sys, -1, 0, Sim.func, [0, 0, 1])
+    for i in range(1, PARTICLE_COUNT+2):
         C(Sys, i, 0, Sim.func, [0, 0, 1])
-    Sys.pos[0] *= 0.
+    # Sys.set_vel(0, np.array([0., 0., 0.]))
+    # Sys.pos[0] *= 0
     # print(Sys.vel)
 
     return Sim
