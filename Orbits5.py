@@ -43,14 +43,14 @@ def main():
         Sim = simple_system()
         Sim.buffer(1)
     elif PRESET == '2':
-        _, Sim = big_buffer(N=PARTICLE_COUNT, frames=500)
+        _, Sim = big_buffer(N=PARTICLE_COUNT, frames=500, rad=30)
     elif PRESET == '3':
         from sim import small_galaxy
         Sim, Sys = small_galaxy(N=PARTICLE_COUNT)
     elif PRESET == '4':
         # Rings around a planet
-        Sim = rings(0.0001)
-        buffer_steps = 20
+        Sim = rings(0.005)
+        buffer_steps = 5
         Sim.buffer(300, verb=True, n=buffer_steps, append_buffer=True)
     else:
         print(f"Preset {PRESET} does not exist.")
@@ -145,13 +145,13 @@ def simple_system():
 def rings(t_step=0.0005):
     physics_functions.GRAVITATIONAL_CONSTANT = get_arg_val('-G')    # from physics_functions import GravityNewtonian as FORCE_F
     planet = [0., 0., 0.]; p_r = 10.
-    moon   = [32., 0., 0.]; p_m = 2.
+    moon   = [50., 0., 0.]; p_m = 2.
     rand_angle = np.random.random(PARTICLE_COUNT) * np.pi * 2
-    rand_dist  = np.random.random(PARTICLE_COUNT) * 10 + 13
+    rand_dist  = np.random.random(PARTICLE_COUNT) * 20 + 13
     rand_p     = np.array([np.cos(rand_angle), np.sin(rand_angle), np.random.normal(scale=0.01, size=PARTICLE_COUNT)]).transpose()
     rand_p    *= rand_dist.reshape(-1, 1)
     mass = np.full(PARTICLE_COUNT+2, 20. / PARTICLE_COUNT)
-    mass[0] = 400
+    mass[0] = 1000
     mass[-1] = 50
     radius = np.full(PARTICLE_COUNT+2, 0.05)
     radius[0] = p_r

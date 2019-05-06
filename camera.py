@@ -269,16 +269,6 @@ class Camera:
     def closest_particle(self):
         return self._closest_particle
 
-    def look():
-        doc = "Direction the camera is pointing"
-        def fget(self):
-            return self._look
-        def fset(self, value):
-            self._look = value
-        def fdel(self):
-            del self._look
-        return locals()
-    look = property(**look())
 
     def pos():
         doc = "The pos property."
@@ -321,8 +311,8 @@ class Camera:
         return self._screen_Y_axis / math.sqrt(np.dot(self._screen_Y_axis, self._screen_Y_axis))
 
     @property
-    def sys(self):
-        return self._sys
+    def sim(self):
+        return self._sim
 
     def look():
         doc = "The look property."

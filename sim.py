@@ -19,7 +19,6 @@ def main():
 
 class SimulationError(Exception):
     def __init__(self, msg=None, particle=None, system=None, sim=None):
-        s = ''
         if not msg:
             msg = 'A simulation error occured'
         if particle:
@@ -170,10 +169,13 @@ class System:
         """
         # Use base classes __getattribute__ for masked attrs and
         # to get the normal output of the attribute:
-        if masked == None: masked = super().__getattribute__('_mask_enabled')
-        masked_attrs = super().__getattribute__('_masked_attributes')
+        if masked == None: 
+            masked = super().__getattribute__('_mask_enabled')
+            masked_attrs = super().__getattribute__('_masked_attributes')
+            masked = masked and (attr in masked_attrs)
+    
         out = super().__getattribute__(attr)
-        if attr in masked_attrs and masked:
+        if masked:
             if type(out) == np.ndarray:
                 mask = super().__getattribute__('get_mask')
                 out = out[mask]
@@ -585,6 +587,7 @@ class Buffer:
     """
     def __init__(self, buffer_dict):
         self._dict = buffer_dict
+        self._masked_attributes = _default_masked_attributes
 
     def __str__(self):
         if PRINT_BUFFER_INLINE:
@@ -707,12 +710,14 @@ class Simulation:
         """
         if self._buffer and attr in self._buffer:
             if self._last_frame:
-                return self._last_frame[attr][0]
+                out = self._last_frame[attr][0]
+                active = self._last_frame.active[0]
             else:
                 out = self._buffer[attr][0]
-                if attr in self._sys._masked_attributes:
-                    out = out[self._buffer.active[0]]
-                return out
+                active = self._buffer.active[0]
+            if attr in self._sys._masked_attributes:
+                out = out[active]
+            return out
         elif self._buffer and attr not in self._buffer:
             raise SimulationError(f"""
 The simulation has a buffer stored, but the
@@ -845,12 +850,8 @@ or the buffer (sim.stored)""")
         if set_delta: 
             prev_pos_full = self._sys.get('pos', False)
 
-        for i in range(n):
+        for _ in range(n):
             self._step_func(self._sys, self._func, self._t_step)
-            # F = self._func(self._sys)
-            # A = F / self._sys.mass.reshape(self._sys.N, 1)
-            # self._sys.vel = self._sys.vel + t_step * A
-            # self._sys.pos = self._sys.pos + t_step * self._sys.vel
             if collisions and mode == 'every':
                 self.step_collisions()
         if collisions and mode == 'once':
@@ -921,15 +922,18 @@ or the buffer (sim.stored)""")
 
 
 
-def big_buffer(N=100, frames=100, show=False):
+def big_buffer(N=100, frames=100, show=False, rad=-1):
     try:
         gfunc
     except:
         from physics_functions import GravityNewtonian as gfunc
-    c =      np.array([
+    if rad < 0:
+        rad = 10
+    c = np.array(
+    [
         [
-            np.cos(x) * 10 * np.random.random(),
-            np.sin(x)*10 + np.random.normal(),
+            np.cos(x)*rad * np.random.random(),
+            np.sin(x)*rad + np.random.normal(),
             0.1 * np.random.normal()
         ] for x in np.linspace(0, 2 * np.pi, N, False)
     ])
