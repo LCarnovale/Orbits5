@@ -51,7 +51,7 @@ class Camera:
                  is currently pointin.
         """
 
-        if sim.dim != 3:
+        if sim.sys.dim != 3:
             raise CameraError("This camera class only supports 3D systems.")
         default_Nd = np.zeros(3, dtype=np.float64)
         self._sim = sim
@@ -129,7 +129,8 @@ class Camera:
 
         source:
             Can be a system, simulation or buffer frame. Must have attributes
-            for active, pos and radius, stemming from a System class.
+            for active, pos and radius, similar to those from a System class.
+            These will be accessed via source.pos, etc.
             If None (default), then the camera's attached Simulation object
             is used instead.
 

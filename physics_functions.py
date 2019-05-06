@@ -81,10 +81,10 @@ def GravityNewtonian(sys):
 
     ### Calculate a tensor for r:
     # Tile the pos array:
-    print("sys.pos:", sys.pos, "N:", sys.N)
+    # print("sys.pos.shape:", sys.pos.shape, "N:", sys.N)
     POS_ALL = np.tile(sys.pos, [sys.N, 1, 1])
     POS_S = np.tile(sys.pos, (1, 1, sys.N)).reshape(POS_ALL.shape)
-    print("sys.pos:", sys.pos, "N:", sys.N)
+    # print("sys.pos.shape:", sys.pos.shape, "N:", sys.N)
 
     D = POS_S - POS_ALL # r vector
     D2 = np.linalg.norm(D, 2, axis=-1) # D2 is now an N x N grid of distances (with 0 on diagonals)

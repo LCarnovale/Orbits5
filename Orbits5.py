@@ -63,25 +63,19 @@ def main():
         # print(Sim.sys.N)
         new_pause = get_pause()
         if new_pause != None:
-            print(f"Pause = {Sim.paused}")
             Sim.pause(new_pause)
 
         frame_clear()
         start = time.time()
-        # if F:
-        # render = camera.render(F)
-            # if not Sim.paused:
-        # F = B.pull()
-        # else:
         F = Sim.step()
-        if F:
-            # Sim.step_collisions()
-            render = camera.render(F)
-        else:
-            render = camera.render()
+        render = camera.render(F)
         end = time.time()
+        # if F:
+        #     # F being returned means a buffer frame.
+        # else:
+        #     render = camera.render()
         print(f"\
-Buffer: {Sim.stored} Size: {Sim.sys.N} \
+Buffer: {Sim.stored} Size: {Sim.N} \
 Time: {1000*(end-start):.3f} ms"+' '*20, end = '\r')
         sys.stdout.flush()
         # camera.look_at(lock)
@@ -109,9 +103,14 @@ Time: {1000*(end-start):.3f} ms"+' '*20, end = '\r')
         # CoM = Sim.sys.mass.reshape(-1, 1) * Sim.sys.pos
         # CoM = np.mean(CoM, axis=0)
         if track_delta:
-            camera.pos += np.mean(
-                Sim.pos_delta * Sim.mass.reshape(-1, 1) / np.sum(Sim.mass), 
-            axis=0)
+            try:
+                Sim.pos_delta
+            except:
+                pass
+            else:
+                camera.pos += np.mean(
+                    Sim.pos_delta * Sim.mass.reshape(-1, 1) / np.sum(Sim.mass), 
+                axis=0)
 
         camera.step(1.)
         frame_update()

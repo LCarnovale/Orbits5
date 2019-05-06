@@ -1,2 +1,8 @@
 
 Orbits4T.py
+.vscode/
+*.pyc
+*.cpython-36.pyc
+*.cpython-37.pyc
+*.pyc
+__pycache__/*.cpython-37.pyc

@@ -45,6 +45,7 @@ class BufferError(Exception):
 
 
 
+_default_masked_attributes = ['pos', 'vel', 'mass', 'radius', 'info']
 class System:
     def __init__(self, position, velocity=None, mass=None, radius=None, info=None):
         """
@@ -78,10 +79,13 @@ class System:
             1
         """
 
-
+        # Validate position?
+        self._mask_enabled = True
+        self._masked_attributes = _default_masked_attributes.copy()
+        self._active_mask = np.full(len(position), True)
 
         self._pos = np.asarray(position).astype(np.float64)
-        self._prev_pos = None # Used to get the change in position of a particle
+        self._prev_pos = None  # Used to get the change in position of a particle
                               # after a step
         self._pos_delta = np.zeros(self._pos.shape, dtype=np.float64)
         if np.isscalar(velocity) and velocity is not None:
@@ -97,32 +101,28 @@ class System:
         if info == None:
             info = {}
         self._info = info
-        self._active_mask = np.full(len(position), True)
-        self._mask_enabled = True
+            
     def __str__(self):
         s = f'<System: N = {self.N} (+{len(self.active) - self.N} dead), dim = {self.dim}>'
         return s
 
-    def __getattr__(self, attr, masked=True):
-        """
-        This can be used to safely call any field out of pos, vel, mass, radius and info
-        Set masked=True to filter output with the mast (default operation for
-        basically all attributes/methods of the class),
-        or set masked=False to return the full arrays.
 
-        Intended to be used through sys.get('attr', masked=[True|False]).
+    def __getattribute__(self, attr):
         """
-        # if masked:
-        m = self.set_active_mask(masked)
-        if attr in self.info:
-            r = self.info[attr]
-        elif attr in dir(self):
-            r = self.__getattribute__(attr) # Be careful of recursive calls here!!!
-        else:
+        Redirect to the public method get, which behaves
+        like __getattribute__ but will use a mask on output 
+        when required.
+        """
+        # masked = super().__getattribute__('_mask_enabled')
+        try:
+            out = super().__getattribute__('get')(attr)
+        except AttributeError:
             raise AttributeError(f"{attr} is not an attribute of 'System' nor is it in self.info")
-        self.set_active_mask(m)
-        return r
+        else:
+            return out
 
+
+        
     def __getitem__(self, slice):
         """
         Used to return a new system representing a
@@ -141,18 +141,41 @@ class System:
                 raise SystemError(f'Unable to slice info array in info[{i}].', self)
 
         return System(new_pos, new_vel, new_mass, new_radius, new_info)
-
+    
+    def __setattr__(self, attr, value):
+        try:
+            # print(f"__setattr__({attr}, {value})")
+            masked_attrs = self._masked_attributes
+            if attr in masked_attrs:
+                mask = self.get_mask
+                current = self.get(attr, False)
+                current[mask] = value
+                super().__setattr__(attr, current)
+            else:
+                super().__setattr__(attr, value)
+        except AttributeError:
+            super().__setattr__(attr, value)
 
     def get(self, attr, masked=True):
         """
-        Can be used instead of implicitly or explicitly calling
-        self.__getattr__(), and has the option of applying the active
-        mask or not.
+        Used mainly to apply a mask if applicable, otherwise
+        handover to the base class's method.
         """
-        return self.__getattr__(attr, masked)
+        # Use base classes __getattribute__ for masked attrs and
+        # to get the normal output of the attribute:
+        masked_attrs = super().__getattribute__('_masked_attributes')
+        out = super().__getattribute__(attr)
+        if attr in masked_attrs and masked:
+            if type(out) == np.ndarray:
+                mask = super().__getattribute__('get_mask')
+                out = out[mask]
+        return out
 
     def set_active_mask(self, newVal=None):
         """
+        Deprecated: Calls that want to be unmasked should be done
+                    using sys.get(name, masked=False)
+        
         Enable or disable the active_mask.
         If enabled, all calls to pos, vel, etc will be filtered
         by the active_mask before returning the array. ie, only
@@ -164,6 +187,7 @@ class System:
         If newVal provided, returns the original value,
         otherwise returns the new value.
         """
+        raise Exception("oi")
         if newVal is None:
             self._mask_enabled = (not self._mask_enabled)
             return self._mask_enabled
@@ -319,6 +343,7 @@ initially given to __init__",
             # self.set_active_mask(_)
         else:
             kill_list = kill_func(self, A, B)
+        kill_list = np.array(list(set(kill_list)))
         self.kill_particle(kill_list[kill_list>=0])
         return len(idx_array)
 
@@ -383,7 +408,7 @@ initially given to __init__",
             raise SimulationError("""
 Attempted to get previous position from System without first setting it""")
         else:
-            return self._prev_pos[self.get_mask]
+            return self._prev_pos
 
     @property
     def pos_delta(self):
@@ -422,7 +447,7 @@ Attempted to get previous position from System without first setting it""")
 
     @property
     def N(self):
-        return len(self._pos[self.active])
+        return len(self.pos)
 
     @property
     def Nfull(self):
@@ -436,9 +461,10 @@ Attempted to get previous position from System without first setting it""")
     def pos():
         doc = "The pos property."
         def fget(self):
-            return self._pos[self.get_mask]
+            return self._pos
         def fset(self, value):
-            self._pos[self.get_mask] = value
+            # print(f"fset([pos], {value})")
+            self._pos = value
         def fdel(self):
             del self._pos
         return locals()
@@ -447,26 +473,20 @@ Attempted to get previous position from System without first setting it""")
     def vel():
         doc = "The vel property."
         def fget(self):
-            if np.any(self._vel==None):
-                return None
-            else:
-                return self._vel[self.get_mask]
+            return self._vel
         def fset(self, value):
-            self._vel[self.get_mask] = value
+            self._vel = value
         def fdel(self):
             del self._vel
         return locals()
     vel = property(**vel())
 
     def mass():
-        doc = "The m property."
+        doc = "The mass property."
         def fget(self):
-            if np.any(self._mass==None):
-                return None
-            else:
-                return self._mass[self.get_mask]
+            return self._mass
         def fset(self, value):
-            self._mass[self.get_mask] = value
+            self._mass = value
         def fdel(self):
             del self._mass
         return locals()
@@ -475,12 +495,9 @@ Attempted to get previous position from System without first setting it""")
     def radius():
         doc = "The radius property."
         def fget(self):
-            if np.any(self._radius==None):
-                return None
-            else:
-                return self._radius[self.get_mask]
+            return self._radius
         def fset(self, value):
-            self._radius[self.get_mask] = value
+            self._radius = value
         def fdel(self):
             del self._radius
         return locals()
@@ -640,8 +657,15 @@ class Simulation:
                 if not np.isscalar(out):
                     out = out[self._buffer.active[0]]
                 return out
+        elif self._buffer and attr not in self._buffer:
+            raise SimulationError(f"""
+The simulation has a buffer stored, but the
+requested attribute {attr} does not exist in the stored buffer.
+To get reliable results, you should check if it exists in and then 
+retrieve the attribute directly from the system (sim.sys)
+or the buffer (sim.stored)""")
         else:
-            return self._sys.__getattr__(attr)
+            return self._sys.get(attr)
 
 
     def buffer(self, buffer_n, t_step=None, buffer_attrs=None, append_buffer=True,
@@ -680,7 +704,6 @@ class Simulation:
             )
 
         output = {}
-        m = self._sys.set_active_mask(False)
         for attr in buffer_attrs:
             attr_val = self._sys.get(attr, masked=False)
             try:
@@ -688,7 +711,6 @@ class Simulation:
             except:
                 dtype_ = type(attr_val)
             output[attr] = np.zeros((buffer_n,) + np.shape(attr_val), dtype=dtype_)
-        # self._sys.set_active_mask(m)
 
         def fill_vals(i):
             for attr in buffer_attrs:
