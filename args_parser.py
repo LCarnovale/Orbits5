@@ -3,8 +3,17 @@ import sys
 import time
 import numpy as np
 
-def get_arg_val(arg):
-	return args[arg][1]
+def get_arg_val(arg, default=None):
+	"""
+	Get the value of a supplied argument.
+	arg: key for the argument
+	default: [optional] if the argument was given by the use,
+			 return this instead of the normal default.
+	"""
+	if default == None or args[arg][-1]:
+		return args[arg][1]
+	else:
+		return default
 
 def arg_supplied(arg):
 	return args[arg][-1]

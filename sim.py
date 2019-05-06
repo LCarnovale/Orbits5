@@ -1,20 +1,22 @@
+import math
 import numpy as np
 
 import sim_funcs
-
-                      # leapfrog_step, leapfrog_init,                           \
-                      # kill_conserve_mass_momentum, test_mass
-# import physics_functions
-
+import buffer
+Buffer = buffer.Buffer
 DELETE_FORCE_LOOP = True
-PRINT_BUFFER_INLINE = False
+
 DEFAULT_BUFFER_ATTRS = ['pos', 'vel', 'mass', 'radius', 'active', 'N']
+default_masked_attributes = ['pos', 'vel', 'mass', 'radius', 'info']
+
+buffer.default_masked_attributes = default_masked_attributes
 
 def main():
 
-    s = big_buffer()
+    # s = big_buffer()
     # s = solar_system_sample()
-    return s
+    m = disc_merger()
+    return locals()
 
 
 class SimulationError(Exception):
@@ -47,7 +49,6 @@ class BufferError(Exception):
 
 
 
-_default_masked_attributes = ['pos', 'vel', 'mass', 'radius', 'info']
 class System:
     def __init__(self, position, velocity=None, mass=None, radius=None, info=None):
         """
@@ -83,7 +84,7 @@ class System:
 
         # Validate position?
         self._mask_enabled = True
-        self._masked_attributes = _default_masked_attributes.copy()
+        self._masked_attributes = default_masked_attributes.copy()
         self._active_mask = np.full(len(position), True)
 
         self._pos = np.asarray(position).astype(np.float64)
@@ -148,19 +149,6 @@ class System:
         """Redirect to sys.set(...)"""
         set_f = super().__getattribute__("set")
         return set_f(attr, value)
-        # return self.set(attr, value)
-        # try:
-        #     # print(f"__setattr__({attr}, {value})")
-        #     masked_attrs = self._masked_attributes
-        #     if attr in masked_attrs:
-        #         mask = self.get_mask
-        #         current = self.get(attr, False)
-        #         current[mask] = value
-        #         super().__setattr__(attr, current)
-        #     else:
-        #         super().__setattr__(attr, value)
-        # except AttributeError:
-        #     super().__setattr__(attr, value)
 
     def get(self, attr, masked=None):
         """
@@ -187,41 +175,51 @@ class System:
         """
         try:
             if index == None:
-                index = slice(0, None)
+                index_ = slice(0, None)
+            else:
+                index_ = index
+                
             if masked == None:
                 masked = self._mask_enabled
             temp = self.get(attr, False)
             if masked:
                 masked_attrs = self._masked_attributes
                 mask = self.get_mask
-                if attr in masked_attrs:
-                    temp_ = temp[mask]
-                    temp_[index] = values
-                    temp[mask] = temp_
+                if index == None:
+                    if attr in masked_attrs:
+                        temp[mask] = values
+                    else:
+                        temp = values
                 else:
-                    temp[index] = values
+                    if attr in masked_attrs:
+                        temp_ = temp[mask]
+                        temp_[index_] = values
+                        temp[mask] = temp_
+                    else:
+                        temp[index_] = values
             else:
-                temp[index] = values
+                temp[index_] = values
         except AttributeError:
             super().__setattr__(attr, values)
         else:
             super().__setattr__(attr, temp)
-        # try:
-        #         # print(f"__setattr__({attr}, {value})")
-        #     masked_attrs = self._masked_attributes
-        #     if attr in masked_attrs:
-        #         mask = self.get_mask
-        #         current = self.get(attr, False)
-        #         current[mask] = value
-        #         super().__setattr__(attr, current)
-        #     else:
-        #         super().__setattr__(attr, value)
-        # except AttributeError:
-        #     super().__setattr__(attr, value)
 
-                
-
+    def append(self, sys):
+        if sys.dim != self.dim:
+            raise SystemError('Unable to append systems with different dimensions')
         
+        # try:
+        self._active_mask = np.append(self._active_mask, sys._active_mask)
+        self._pos = np.append(self._pos, sys._pos, axis=0)
+        if np.shape(self._vel): 
+            self._vel = np.append(self._vel, sys._vel, axis=0)
+        if np.shape(self._mass):
+            self._mass = np.append(self._mass, sys._mass, axis=0)
+        if np.shape(self._radius):
+            self._radius = np.append(self._radius, sys._radius, axis=0)
+        
+            
+            
 
     def set_active_mask(self, newVal=None):
         """
@@ -400,39 +398,6 @@ initially given to __init__",
         """
         pass
 
-    # def set_pos(self, indexes, values):
-    #     """
-    #     Used to reliably set values in self.pos without problems
-    #     occuring due to masks.
-
-    #     Would normally be equivalent to self.pos[indexes] = values
-    #     but that may not work sometimes due to masks.
-    #     """
-    #     indexes = self.active_map[indexes]
-    #     _p = self._pos
-    #     _p[indexes] = values
-    #     np.copyto(self._pos, _p)
-
-    # def set_vel(self, indexes, values):
-    #     indexes = self.active_map[indexes]
-    #     _v = self._vel
-    #     _v[indexes] = values
-    #     np.copyto(self._vel, _v)
-    #     # v = self.
-    #     # v[indexes] = values
-
-    # def set_mass(self, indexes, values):
-    #     # indexes = self.active_map[indexes]
-    #     _m = self._mass
-    #     _m[indexes] = values
-    #     np.copyto(self._mass, _m)
-
-    # def set_radius(self, indexes, values):
-    #     # indexes = self.active_map[indexes]
-    #     _r = self.radius
-    #     _r[indexes] = values
-    #     np.copyto(self.radius, _r)
-
 
     def set_prev_pos(self):
         """
@@ -578,93 +543,6 @@ DEFAULT_STEP = sim_funcs.leapfrog_step
 DEFAULT_TEST = sim_funcs.test_mass
 DEFAULT_KILL = sim_funcs.kill_conserve_mass_momentum
 
-
-class Buffer:
-    """
-    Used to handle the output from sim.buffer(),
-    a Buffer object can be indexed and sliced to return
-    another buffer with the same original keys but with specific frames.
-    """
-    def __init__(self, buffer_dict):
-        self._dict = buffer_dict
-        self._masked_attributes = _default_masked_attributes
-
-    def __str__(self):
-        if PRINT_BUFFER_INLINE:
-            fields_ = '\n    '.join(['']+[k for k in self._dict]) + "\n"
-        else:
-            fields_ = ','.join([k for k in self._dict])
-        return (
-            f"<Buffer length {len(self)}, fields: [{fields_}]>"
-        )
-
-    def __add__(self, buffer):
-        new = self.copy()
-        if buffer == None:
-            return self.copy()
-        for k in self._dict:
-            new._dict[k] = np.append(self._dict[k], buffer[k], axis=0)
-
-        return new
-
-    def __contains__(self, x):
-        return self._dict.__contains__(x)
-
-    def __radd__(self, buffer):
-        return self.__add__(buffer)
-
-    def __iadd__(self, buffer):
-        self = self + buffer
-
-    def __getitem__(self, s):
-        if type(s) in [int, slice]:
-            out = {}
-            try:
-                for k in self._dict:
-                    val = self._dict[k][s].copy()
-                    if type(s) != slice:
-                        out[k] = np.array([val])
-                    else:
-                        out[k] = val
-            except IndexError:
-                raise BufferError(
-                    f"Frame {s} out of bounds for Buffer of length {len(self)}",
-                    self
-                )
-            return Buffer(out)
-        elif s in self._dict:
-            out = self._dict[s]
-            return out
-        else:
-            raise KeyError
-    def __getattr__(self, s):
-        return self.__getitem__(s)
-
-    def __len__(self):
-        l = len(next(iter(self._dict.values())))
-        return l
-
-    def pull(self):
-        """
-        Return the first frame and delete it.
-        """
-        if len(self) == 0:
-            return None
-        f = self[0].copy()
-        self._dict = self[1:]._dict
-        return f
-
-    def copy(self):
-        d = {k:self._dict[k].copy() for k in self._dict}
-        return Buffer(d)
-
-    @property
-    def size(self):
-        return len(self)
-
-    @property
-    def keys(self):
-        return self._dict.keys()
 
 
 class Simulation:
@@ -847,8 +725,8 @@ or the buffer (sim.stored)""")
                     self._last_frame = None
                     self._buffer = None
 
-        if set_delta: 
-            prev_pos_full = self._sys.get('pos', False)
+        # if set_delta: 
+        #     prev_pos_full = self._sys.get('pos', False)
 
         for _ in range(n):
             self._step_func(self._sys, self._func, self._t_step)
@@ -857,10 +735,10 @@ or the buffer (sim.stored)""")
         if collisions and mode == 'once':
             self.step_collisions()
 
-        if set_delta:
-            delta = self._sys.get('pos', False) - prev_pos_full
-            delta = delta[self._sys.get_mask]
-            self._sys.set_pos_delta(delta)
+        # if set_delta:
+        #     delta = self._sys.get('pos', False) - prev_pos_full
+        #     delta = delta[self._sys.get_mask]
+        #     self._sys.set_pos_delta(delta)
 
         return None
 
@@ -920,38 +798,82 @@ or the buffer (sim.stored)""")
         return locals()
     t_step = property(**t_step())
 
+########################################################################
+################## Some example systems/simulations ####################
+########################################################################
+
+def disc_sys(N, mass_props=(1, 0, 'normal'), radius_props=(10, 0, 'uniform'), 
+             vel=(1, 1), thickness=0.1, particle_rad=(1, 0, 'normal'), axis=None):
+    """ 
+    Create a system of a disc of particles
+    mass_props
+    radius_props
+    particle_rad :  all are of the form:
+                    (mean, std-dev, 'normal') or
+                    (min, max, 'uniform')
+    For the mass of particles, radius of disc,
+    and radius of particles respectively.
 
 
-def big_buffer(N=100, frames=100, show=False, rad=-1):
+    vel: in the middle of the disc (r / 2), the speed is vel[0].
+         and other distances are scaled by vel[1], ie:
+         v(r) = ((r - r_mid)/(r_mid) * vel[1] + 1) * vel[0]
+         so that if vel[1] == 0, all particles have the same speed,
+         and if vel[1] == 1, speed at r = 0 is 0, and at max radius
+         is 2*vel[0] (ie all particles have the same angular speed).
+         All velocities are tangential.
+
+    axis: Default [0, 0, 1], axis of rotation and normal to the disc.
+    
+    thickness:
+        the position along axis is distributed normally with a
+        standard deviation of 'thickness'
+    """
+    if np.any(axis == None):
+        axis = [0, 0, 1]
+    def rand_f(a, b, type_, size):
+        if type_ == 'normal':
+            return np.random.normal(loc=a, scale=b, size=size)
+        elif type_ == 'uniform':
+            return np.random.random(size=size) * (b - a) + a
+        else:
+            raise Exception
+
+    r = rand_f(*radius_props, N)                  # radius (disc)
+    r_mid = np.mean(r)         
+    r_p = rand_f(*particle_rad, N)          # radius (particles)
+    s = ((r - r_mid)/r_mid * vel[1] + 1) * vel[0] # speed
+    m = rand_f(*mass_props, N)              # mass
+    z = rand_f(0, thickness, 'normal', N)   # position along (local) z-axis
+    angle = np.random.random(N) * 2*np.pi   # angle in disc
+
+    z_unit = np.asarray(axis) / math.sqrt(np.dot(axis, axis))
+    temp_vec = 1. * np.asarray(axis)
+    temp_vec[0] += 1 
+    temp_vec[1] -= 1
+    x_unit = np.cross(temp_vec, z_unit)
+    y_unit = np.cross(z_unit, x_unit)
+    x  = r * np.cos(angle);# x = x.transpose()
+    y  = r * np.sin(angle);# y = y.transpose()  
+    vx = s * np.sin(angle);# vx = vx.transpose() 
+    vy = s * -np.cos(angle);# vy = vy.transpose() 
+    pos = z_unit * z.reshape(-1, 1) + x_unit * x.reshape(-1, 1) + y_unit * y.reshape(-1, 1)
+    vel = x_unit * vx.reshape(-1, 1) + y_unit * vy.reshape(-1, 1)
+    sys = System(pos, vel, m, radius=r_p)
+    
+    return sys
+
+def big_buffer(N=100, frames=100, show=False, **disc_kwargs):
+    # Set show = True to plot on a 3D plot
     try:
         gfunc
     except:
         from physics_functions import GravityNewtonian as gfunc
-    if rad < 0:
-        rad = 10
-    c = np.array(
-    [
-        [
-            np.cos(x)*rad * np.random.random(),
-            np.sin(x)*rad + np.random.normal(),
-            0.1 * np.random.normal()
-        ] for x in np.linspace(0, 2 * np.pi, N, False)
-    ])
-    v = 40 * np.array([
-        [
-            np.sin(x)*5 + np.random.normal(),
-           -np.cos(x)*5 + np.random.normal(),
-            np.random.normal()
-        ] for x in np.linspace(0, 2 * np.pi, N, False)
-    ])
-    # p = np.random.random((N, 3)) * 10
-    # v = np.random.random((N, 3))
-    r = np.ones(N) * 5e-2
-    m = (1 + np.random.random(N)) * 10
-    Sys = System(c, v, m, r)
+
+    Sys = disc_sys(N, **disc_kwargs)
     Sim = Simulation(Sys, gfunc, t_step=0.0005)
     print("Buffering...")
-    d = Sim.buffer(frames)
+    d = Sim.buffer(frames, verb=True)
     print("Done.")
     if show:
         fig = plt.figure()
@@ -969,6 +891,24 @@ def big_buffer(N=100, frames=100, show=False, rad=-1):
         ax.set_zlim(-20, 20)
         plt.show()
     return d, Sim
+
+def disc_merger(N=100, disc_radii=8, kick=[0, 0, 0], axis2=[0, 0, 1], **disc_kwargs):
+    kwargs = {
+        'mass_props':(10, 5, 'normal'),
+        'radius_props':(disc_radii, 0, 'uniform'),
+        'particle_rad':(0.05, 0, 'normal'),
+        'vel':(100, 1)
+    }
+    kwargs.update(disc_kwargs)
+    disc1 = disc_sys(N, **kwargs)
+    kwargs['axis'] = axis2
+    disc2 = disc_sys(N, **kwargs)
+    shift = np.array([[0., 4*disc_radii, 0.]])
+    disc1.pos += shift
+    disc1.vel += np.asarray(kick)
+    disc2.pos -= shift
+    disc1.append(disc2)
+    return disc1
 
 def small_galaxy(N=1000):
     try:

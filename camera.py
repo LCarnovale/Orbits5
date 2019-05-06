@@ -190,7 +190,7 @@ class Camera:
         temp_array = self._screen_depth / dist_to_screen
         temp_array[temp_array>1]  =  1.0
         temp_array[temp_array<-1] = -1.0
-        angle_centre = np.arccos(temp_array)
+        # angle_centre = np.arccos(temp_array)
         angle_width  = np.arcsin(radius / rel_dist)
 
         # Distance from point on screen to screen centre
@@ -241,7 +241,7 @@ class Camera:
             # self._look += shift
             # self._look /= math.sqrt(np.dot(self._look, self._look))
 
-            angle = np.linalg.norm(self._rot, 2)
+            # angle = np.linalg.norm(self._rot, 2)
             if np.any(self._rot != self._prev_rot) or True:
                 self._prev_rot = self._rot.copy()
                 self._rot_mat = rotation_matrix(self._rot)

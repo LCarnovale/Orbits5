@@ -15,6 +15,7 @@ def canvas_init():
     window.bgcolor([0, 0, 0])
 
     window.tracer(0, 0)             # Makes the turtle's speed instantaneous
+    bind_input()
     return window
 
 
@@ -234,77 +235,77 @@ def draw_all(x, y, major, minor, angle, fill = [0,0,0],
     return True
 
 
+def bind_input():
+    turtle.onkeypress(panLeft, "a")
+    turtle.onkeyrelease(panRight , "a")
 
-turtle.onkeypress(panLeft, "a")
-turtle.onkeyrelease(panRight , "a")
+    turtle.onkeypress(panRight, "d")
+    turtle.onkeyrelease(panLeft , "d")
 
-turtle.onkeypress(panRight, "d")
-turtle.onkeyrelease(panLeft , "d")
+    turtle.onkeypress(panForward, "w")
+    turtle.onkeyrelease(panBack , "w")
 
-turtle.onkeypress(panForward, "w")
-turtle.onkeyrelease(panBack , "w")
+    turtle.onkeypress(panBack, "s")
+    turtle.onkeyrelease(panForward , "s")
 
-turtle.onkeypress(panBack, "s")
-turtle.onkeyrelease(panForward , "s")
+    turtle.onkeypress(panUp, "r")
+    turtle.onkeyrelease(panDown , "r")
 
-turtle.onkeypress(panUp, "r")
-turtle.onkeyrelease(panDown , "r")
+    turtle.onkeypress(panDown, "f")
+    turtle.onkeyrelease(panUp , "f")
 
-turtle.onkeypress(panDown, "f")
-turtle.onkeyrelease(panUp , "f")
+    turtle.onkeypress(panFast, "Shift_L")
+    turtle.onkeyrelease(panSlow, "Shift_L")
 
-turtle.onkeypress(panFast, "Shift_L")
-turtle.onkeyrelease(panSlow, "Shift_L")
+    turtle.onkeypress(rotRight, "Right")
+    turtle.onkeyrelease(rotLeft, "Right")
 
-turtle.onkeypress(rotRight, "Right")
-turtle.onkeyrelease(rotLeft, "Right")
+    turtle.onkeypress(rotLeft, "Left")
+    turtle.onkeyrelease(rotRight, "Left")
 
-turtle.onkeypress(rotLeft, "Left")
-turtle.onkeyrelease(rotRight, "Left")
+    turtle.onkeypress(rotUp, "Up")
+    turtle.onkeyrelease(rotDown, "Up")
 
-turtle.onkeypress(rotUp, "Up")
-turtle.onkeyrelease(rotDown, "Up")
+    turtle.onkeypress(rotDown, "Down")
+    turtle.onkeyrelease(rotUp, "Down")
 
-turtle.onkeypress(rotDown, "Down")
-turtle.onkeyrelease(rotUp, "Down")
+    turtle.onkeypress(rotClockWise, "e")
+    turtle.onkeyrelease(rotAntiClock, "e")
 
-turtle.onkeypress(rotClockWise, "e")
-turtle.onkeyrelease(rotAntiClock, "e")
+    turtle.onkeypress(rotAntiClock, "q")
+    turtle.onkeyrelease(rotClockWise, "q")
 
-turtle.onkeypress(rotAntiClock, "q")
-turtle.onkeyrelease(rotClockWise, "q")
-
-turtle.onkey(escape, "Escape")
-turtle.onkey(pause,  "space")
-#
-# turtle.onkey(cycleTargets, "Tab")
-# turtle.onkeypress(togglePanTrack, "t")
-# turtle.onkey(toggleRotTrack, "y")
-# turtle.onkey(clearTarget,    "c")
-# turtle.onkey(goToTarget,     "g")
-# turtle.onkey(toggleRealTime, "i")
-#
-# turtle.onkey(toggleScreenData, "h")
-# turtle.onkey(startRecord, "j")
-# turtle.onkey(stopRecord, "k")
-#
-# turtle.onkeypress(upScreenDepth, "'")
-# turtle.onkeypress(downScreenDepth, ";")
-#
-# turtle.onkeypress(upMaxMag, ".")
-# turtle.onkeypress(downMaxMag, ",")
-#
-# turtle.onkey(upDelta, "]")
-# turtle.onkey(downDelta, "[")
-# turtle.onkey(revDelta, "\\")
-#
-# turtle.onscreenclick(leftClick, 1)
-# turtle.onscreenclick(rightClick, 3)
-#
-# turtle.onkey(bufferRecord, "n")
-# turtle.onkey(bufferPlay, "m")
-#
-# turtle.onkey(upRelSpeed, "=")
-# turtle.onkey(dnRelSpeed, "-")
-#
-# turtle.onkey(search, "/")
+    turtle.onkey(escape, "Escape")
+    turtle.onkey(pause,  "space")
+    #
+    # turtle.onkey(cycleTargets, "Tab")
+    # turtle.onkeypress(togglePanTrack, "t")
+    # turtle.onkey(toggleRotTrack, "y")
+    # turtle.onkey(clearTarget,    "c")
+    # turtle.onkey(goToTarget,     "g")
+    # turtle.onkey(toggleRealTime, "i")
+    #
+    # turtle.onkey(toggleScreenData, "h")
+    # turtle.onkey(startRecord, "j")
+    # turtle.onkey(stopRecord, "k")
+    #
+    # turtle.onkeypress(upScreenDepth, "'")
+    # turtle.onkeypress(downScreenDepth, ";")
+    #
+    # turtle.onkeypress(upMaxMag, ".")
+    # turtle.onkeypress(downMaxMag, ",")
+    #
+    # turtle.onkey(upDelta, "]")
+    # turtle.onkey(downDelta, "[")
+    # turtle.onkey(revDelta, "\\")
+    #
+    # turtle.onscreenclick(leftClick, 1)
+    # turtle.onscreenclick(rightClick, 3)
+    #
+    # turtle.onkey(bufferRecord, "n")
+    # turtle.onkey(bufferPlay, "m")
+    #
+    # turtle.onkey(upRelSpeed, "=")
+    # turtle.onkey(dnRelSpeed, "-")
+    #
+    # turtle.onkey(search, "/")

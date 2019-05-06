@@ -2,6 +2,7 @@
 import time
 import loadSystem
 import sys
+import math
 
 import numpy as np
 import turtle
@@ -28,13 +29,13 @@ elif mi == 'RK4':
 
 def main():
     print("Orbits5 Demonstration")
-    canvas_init()
-
     from sim import big_buffer
+
     physics_functions.GRAVITATIONAL_CONSTANT = args['-G'][1]
     track_delta = True
     sim.DEFAULT_BUFFER_ATTRS += ['com']
     buffer_steps = 1
+
     if START_PAUSED:
         pause()
     if PRESET == '1':
@@ -43,15 +44,24 @@ def main():
         Sim = simple_system()
         Sim.buffer(1)
     elif PRESET == '2':
-        _, Sim = big_buffer(N=PARTICLE_COUNT, frames=500, rad=30)
+        _, Sim = big_buffer(N=PARTICLE_COUNT, frames=500, radius_props=(15, 5, 'normal'),
+        particle_rad=(0.05, 0, 'normal'), mass_props=(10, 5, 'normal'), vel=(200, 1))
     elif PRESET == '3':
         from sim import small_galaxy
-        Sim, Sys = small_galaxy(N=PARTICLE_COUNT)
+        Sim, _ = small_galaxy(N=PARTICLE_COUNT)
     elif PRESET == '4':
         # Rings around a planet
-        Sim = rings(0.005)
+        Sim = rings(get_arg_val('-d', 0.005))
         buffer_steps = 5
         Sim.buffer(300, verb=True, n=buffer_steps, append_buffer=True)
+    elif PRESET == '5':
+        from sim import disc_merger
+        Sys = disc_merger(
+            PARTICLE_COUNT, thickness=0.5, disc_radii=15,
+            vel=(400, 1), mass_props=(20, 5, 'normal'), 
+            particle_rad=(0.03, 0.01, 'normal'), kick=np.asarray([1, 0, -1])*100,
+            axis=[1, 0., 1], axis2=[1, 0., 1])
+        Sim = Simulation(Sys, FORCE_F, t_step=get_arg_val('-d', 0.001))
     else:
         print(f"Preset {PRESET} does not exist.")
         return 0
@@ -61,13 +71,16 @@ def main():
     camera = Camera(Sim, pos=Sim.com + np.array([40., 0, 40]), look=np.array([-1., 0, -1]), screen_depth=1000)
     camera.set_X_Y_axes(new_Y = np.array([-1., 0, 1]))
 
+    # Call this to set the window up.
+    canvas_init()
 
     turtle.listen()
 
-    # initialise delta for first step before it is calculated
+    # initialise these for first step before they are set
     com_delta = 0.
+    sleep = 0.
     while get_running() is not False:
-        time.sleep(0.002)
+        if sleep > 0: time.sleep(sleep)
         new_pause = get_pause()
         if new_pause != None:
             Sim.pause(new_pause)
@@ -84,9 +97,16 @@ def main():
             # print(camera.pos)
         render = camera.render(F)
         end = time.time()
-        print(f"\
-Buffer: {Sim.stored} Size: {Sim.N} \
-Time: {1000*(end-start):.3f} ms"+' '*20, end = '\r')
+        delta_t = end-start
+        sleep = 0.02 - delta_t
+        if Sim.stored:
+            ss = f'[{Sim.sys.N} active]'
+        else:
+            ss = ''
+        data_str = f"""\
+Buffer: {Sim.stored} Size: {Sim.N} {ss} \
+Time: {1000*delta_t:.3f}"""
+        print(f"{data_str: <115}", end = '\r')
         sys.stdout.flush()
         # camera.look_at(lock)
 
@@ -96,12 +116,6 @@ Time: {1000*(end-start):.3f} ms"+' '*20, end = '\r')
 
         new_pan = get_pan()
         new_rot = get_rotate()
-        if new_rot != None:
-            camera.rot = 0.02  *  (
-                camera.screen_Y_axis_norm * new_rot[0] +
-                camera.screen_X_axis_norm * new_rot[1] +
-                camera.look * new_rot[2]
-            )
         if np.any(camera.vel):
             new_pan = get_pan(True)
         if new_pan != None:
@@ -110,6 +124,12 @@ Time: {1000*(end-start):.3f} ms"+' '*20, end = '\r')
                 camera.screen_X_axis_norm * new_pan[0] +
                 camera.screen_Y_axis_norm * new_pan[1] +
                 camera.look * new_pan[2]
+            )
+        if new_rot != None:
+            camera.rot = 0.04 *  (
+                camera.screen_Y_axis_norm * new_rot[0] +
+                camera.screen_X_axis_norm * new_rot[1] +
+                camera.look * new_rot[2]
             )
         # Track centre of mass:
         # camera.pos -= CoM.copy()
@@ -121,6 +141,7 @@ Time: {1000*(end-start):.3f} ms"+' '*20, end = '\r')
         draw_all(*render)
         frame_update()
     print()
+
     return Sim
         # print("f", end = '')
 
