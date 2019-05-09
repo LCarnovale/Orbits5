@@ -10,8 +10,8 @@ def get_arg_val(arg, default=None):
 	default: [optional] if the argument was given by the use,
 			 return this instead of the normal default.
 	"""
-	if default == None or args[arg][-1]:
-		return args[arg][1]
+	if default == None or args[arg][0][-1]:
+		return args[arg][0][1]
 	else:
 		return default
 
@@ -33,179 +33,159 @@ def arg_supplied(arg):
 #                                                                                                                           #
 ########### PUT DEFAULTS HERE ###############################################################################################
 args = {#   [<type>   \/	 <Req.Pmtr>  <Def.Pmtr>
-"-?"  :  [None], # Help.
-"-d"  :     [float,	0.025,	True], # Delta time per step
-"-n"  :     [int,   20,		True], # Particle count
-"-p"  :     [str,   "1",	True], # preset
-"-mi" :     [str,   "leapfrog", True], # Method of integration
-"-rn" :     [int,   2,      True], # Power of r (F = -GMm/r^n) for preset 4.5
-"-rt" :     [str,   False,  False,  True], # Run in real time
-"-sp" :     [str,   False,	False,  True], # start paused
-"-ss" :     [str,   False,	False,  True], # staggered simulation
-"-G"  :     [float, 20,		True], # Gravitational constant
-"-pd" :     [str,   False,	False,  True], # Print data
-"-sd" :     [float, 2500,	True], # Default screen depth
-"-ps" :     [float, 0.01,	True], # Maximum pan speed
-"-rs" :     [float, 0.01,	True], # Rotational speed
-"-ip" :     [str,   "Earth",True], # Initial pan track
-"-ir" :     [str,   "Sun",  True], # Initial rot track
-"-sep":     [float, 700,    True], # Separation of bodies A and B in preset 6
-"-ae" :     [str,   True,   False,  True], # Auto "exposure"
-"-rel":     [str,   False,  False,  True], # Visualise special relativity effects (Experimental)
-"-mk" :     [str,   False,	False,  True], # Show marker points
-"-ep" :     [int,   360,	True], # Number of points on each ellipse (Irrelevant if SMART_DRAW is on)
-"-sf" :     [float, 0.5,	True], # Rate at which the camera follows its target
-"-ad" :     [str,   False,	False,  True], # Always draw. Attempts to draw particles even if they are thought not to be on screen
-"-vm" :     [float, 150,	True], # Variable mass. Will be used in various places for each preset.
-"-vv" :     [float, False,	False,  1], # Draw velocity vectors
-"-ds" :     [str,	False,	False,  True], # Draw stars, ie, make the minimum size 1 pixel, regardless of distance.
-"-sdp":     [int,   5,		True], # Smart draw parameter, equivalent to the number of pixels per edge on a shape
-"-me" :     [int,   80,	True], # Max number of edges drawn
-"-ab" :     [int,   False,	False,  20], # Make asteroid belt (Wouldn't recommend on presets other than 3..)
-"-es" :     [int,	False,	False,  5], # Make earth satellites
-"-WB" :     [str,   False,	False,	True], # Write buffer to file
-"-rp" :     [float, False,  False,  0.6], # Make random planets
-"-cf" :     [str,	True,  False,  True], # Use complex flares
-"-sr" :     [int,   False,  True], # Make rings (really just a thin asteroid belt) around Saturn
-"-rg" :     [str,   False,  False,  True], # Record gif shots
-"-tn" :     [str,   False,  False,  True], # True n-body simulation. When off program makes some sacrifices for performance boost.
-"-asb" :    [int,   4,      True], # Number of bodies in the auto-systems.
-"-flim":    [float, False,  True], # Frame limit
-"-demo":    [str,   False,  False,  True], # Run demo
-"-dfs":     [int,   0,      True], # Draw diffraction spikes (Experimental)
-"-df" :     [str, "SolSystem.txt", True], # Path of the data file
-"-test":    [str,   False,  False, True], # Test mode
-"-getStars":[float, False,  False, 4], # Get stars from the datafile.
-"-PM":      [str,   False,  False, True],  # Enter the preset maker
-"-dbg":     [str,   False,  False, True],  # Enter debug mode. (Frame by frame with command line options)
-"-P?":      [str,   False,  False, True],  # Show available presets and quit
-"-AA_OFF":  [str,   True,   False, False]   # Turn off AutoAbort.
+# "-?"  :  [None], # Help.
+"-d"  :     ([float,	0.025,	True], "Delta time per step"),
+"-n"  :     ([int,   20,		True], "Particle count"),
+"-p"  :     ([str,   "1",	True], "preset"),
+"-bp" :     ([str,   False,  False,  True], "Buffer while paused."),
+"-dr" :     ([float, 15,     True], "Disc radius (for generic usage)"),
+"-kick":    ([float, 40,     True], "Magnitude of 'kick' given to an\nobject or system, where applicable."),
+"-db" :     ([str,   False,   False, True], "Dark buffer, ie don't draw while buffering."),
+"-mi" :     ([str,   "leapfrog", True], "Method of integration"),
+"-rn" :     ([int,   2,      True], "Power of r (F = -GMm/r^n) for preset 4.5"),
+"-rt" :     ([str,   False,  False,  True], "Run in real time"),
+"-sp" :     ([str,   False,	False,  True], "start paused"),
+"-ss" :     ([str,   False,	False,  True], "staggered simulation"),
+"-G"  :     ([float, 15,	True], "Gravitational constant"),
+"-pd" :     ([str,   False,	False,  True], "Print data"),
+"-sd" :     ([float, 2500,	True], "Default screen depth"),
+"-ps" :     ([float, 0.01,	True], "Maximum pan speed"),
+"-rs" :     ([float, 0.01,	True], "Rotational speed"),
+"-ip" :     ([str,   "Earth",True], "Initial pan track"),
+"-ir" :     ([str,   "Sun",  True], "Initial rot track"),
+"-sep":     ([float, 700,    True], "Separation of bodies A and B in preset 6"),
+"-ae" :     ([str,   True,   False,  True], "Auto 'exposure'"),
+"-rel":     ([str,   False,  False,  True], "Visualise special relativity effects (Experimental)"),
+"-mk" :     ([str,   False,	False,  True], "Show marker points"),
+"-ep" :     ([int,   360,	True], "Number of points on each ellipse (Irrelevant if SMART_DRAW is on)"),
+"-sf" :     ([float, 0.5,	True], "Rate at which the camera follows its target"),
+"-ad" :     ([str,   False,	False,  True], "Always draw. Attempts to draw particles \neven if they are thought not to be on screen"),
+"-vm" :     ([float, 150,	True], "Variable mass. Will be used in various \nplaces for each preset."),
+"-vv" :     ([float, False,	False,  1], "Draw velocity vectors"),
+"-ds" :     ([str,	False,	False,  True], "Draw stars, ie, make the minimum size 1 pixel, \nregardless of distance."),
+"-sdp":     ([int,   5,		True], "Smart draw parameter, equivalent to the \nnumber of pixels per edge on a shape"),
+"-me" :     ([int,   80,	True], "Max number of edges drawn"),
+# "-ab" :     ([int,   False,	False,  20], "Make asteroid belt (Wouldn't recommend on presets other than 3..)"),
+"-es" :     ([int,	False,	False,  5], "Make earth satellites"),
+"-WB" :     ([str,   False,	False,	True], "Write buffer to file"),
+"-rp" :     ([float, False,  False,  0.6], "Make random planets"),
+"-cf" :     ([str,	True,  False,  True], "Use complex flares"),
+"-sr" :     ([int,   False,  True], "Make rings (really just a thin asteroid belt) around Saturn"),
+"-rg" :     ([str,   False,  False,  True], "Record gif shots"),
+"-tn" :     ([str,   False,  False,  True], "True n-body simulation. When off program makes \nsome sacrifices for performance boost."),
+"-asb" :    ([int,   4,      True], "Number of bodies in the auto-systems."),
+"-flim":    ([float, False,  True], "Frame limit"),
+"-demo":    ([str,   False,  False,  True], "Run demo"),
+"-dfs":     ([int,   0,      True], "Draw diffraction spikes (Experimental)"),
+# "-df" :     ([str, "SolSystem.txt", True], "Path of the data file"),
+"-test":    ([str,   False,  False, True], "Test mode"),
+"-getStars":([float, False,  False, 4], "Get stars from the datafile."),
+"-PM":      ([str,   False,  False, True], "Enter the preset maker"),
+"-dbg":     ([str,   False,  False, True], "Enter debug mode. (Frame by frame with command line options)"),
+"-P?":      ([str,   False,  False, True], "Show available presets and quit"),
+"-AA_OFF":  ([str,   True,   False, False], "Turn off AutoAbort."),
 }
 
-originalG = args["-G"][1]
+# originalG = args["-G"][1]
 
 if len(sys.argv) > 1:
 	if ("-?" in sys.argv):
 		# Enter help mode
 		print("Welcome to Orbits4T!")
+		arglist = [(arg, args[arg][0], args[arg][1]) for arg in args]
+		arglist_str = []
+		get_str_from_type = lambda x: str(x).split(' ')[1][1:-2]
+		for key, props, desc in arglist:
+			arg_t = get_str_from_type(props[0])
+			dflt = props[1]
+			p_req = str(props[2])
+			p_dflt = ('' if props[2] else str(props[3]))
+			s = f"{key:.<9} : {arg_t:.<5} : {dflt:.<10} : {p_req:.<6} : {p_dflt:.<10}"
+			if desc: 
+				s_len = len(s)
+				s += " : "
+				if '\n' in desc:
+					lines = desc.split('\n')
+					s += lines[0]
+					for l in lines[1:]:
+						s += f"\n.{' ':<{s_len}}. {l}"
+				else:
+					s += desc
 
-		print("""
-This version contains the following presets:
-1)  Centre body with '-n' number of planets orbiting in random places. (Default 10)
-2)  'Galaxy' kinda thing (Miserable failure, don't waste your time with this one)
-3)  THE WHOLE UNIVERSE
-4)  Another small test. Large body with a line of small bodies orbiting in a circle.
-5)  Repulsive particles on the surface of a sphere, that eventually sort themselves into an even spread. Just cool to watch.
-The third one is way better, don't even bother with the others. They were just practice.
+			arglist_str.append(s)
+		arglist_full = '\n'.join(arglist_str)
 
-Arguments:
-Key|Parameter type|Description
-   | (if needed)  |
--d :    float       Delta time per step.
--n :    int         Particle count, where applicable.
--p :    string      Preset.
--sp:                Start paused.
--rt:                Start in real time. (Can be toggled during the simulation)
--ss:                Staggered simulation (Hit enter in the terminal to trigger each step)
--G :    float       Gravitational constant.
--pd:                Print debugging data.
--sd:    float       Default screen depth.
--ps:    float       Maximum pan speed.
--rs:    float       Rotational speed.
--ip:    string      Starts the simulation with pan track at a body with the given name. (ONLY PRESET 3)
-						The body is found by using the search function, so a HIP id will work too.
--ir:    string      Starts the simulation with rot track at a body with the given name, like -ip. (ONLY PRESET 3)
--mk:                Show marker points (static X, Y, Z and Origin coloured particles)
--ep:    int         Number of points on each ellipse (Irrelevant if SMART_DRAW is on (which it is))
--sf:    float       Rate at which the camera follows its target.
--ad:                (Debug tool) Always draw. Attempts to draw particles even if they are thought not to be on screen
--vm:    float       Variable mass. To be used in relevant places for some presets.
--vv:                Draw velocity and acceleration vectors. Note that while velocity vectors are to scale,
-						acceleration vectors are multiplied by 5 when being drawn. (Otherwise they are too short)
-						Give a number parameter to scale each vector.
--ds  :              Draw stars, ie, make the minimum size 1 pixel, regardless of distance.
--sdp :  int         Smart draw parameter, equivalent to the number of pixels per edge on a shape.
--me  :  int         Maximum edges, max number of edges drawn on each shape.
--ab  :  int         Make asteroid belt (Wouldn't recommend on presets other than 3..)
--es  :  int         Make earth satellites.
--WB  :              Write buffer to file.
--sr  :  int         Make rings around Saturn, the given number represents how many objects to make.
--dfs :  int         Draw diffraction spikes around stars. Enter the number of spikes after -dfs. *Experimental*
--rp  :  float       Make random planets, give a percentage of stars to have systems.
-						(only for preset 3, if stars are also made)
--tn  : (True/False) Runs the simulation in True N-body mode, making calculations of acceleration due the
-						gravity of all bodies to all bodies. Much slower but usually much more accurate
-						(Really not worth turning on for presets like the solar system)
-						If left on, (ie the argument is not used) then the most influencial bodies at the
-						start are the only ones that affect that body for the rest of the simulation.
-						But, for some presets this is ON by default.
--asb :  int         Number of bodies in auto generated systems.
--demo:              Runs a demo. Only usable in preset 3, goes through bodies looking around them
-						then moving onto the next body.
--flim:  float       Frame limit.
--df  :  string      Path of the data file. (Not implemented)
--test:              Enter test mode.* (See below)
--getStars: float	Loads stars from a database of almost 120,000 stars in the night sky. The value
-						given with this parameter will be used as the maximum apparent magnitude from
-						Earth of the stars loaded. The default is 4.5, which loads about 510 stars.
--PM  :              Enters the preset maker, allowing you to design a preset.
--P?  :              Shows the available presets then exits.
--AA_OFF:            Turn off AutoAbort. (AutoAbort will kill the simulation if two consecutive frames
-						last longer than a second, it's only trying to help you not bring your
-						computer to a standstill, be careful if you choose to abandon it)
+		print(f"""
+Orbits5 - Dynamic n-body simulator
+
+For arguments where 'Value needed' is true, then a value must be supplied after the key
+in the command line arguments. If a value is not needed, then the parameter is by
+default set to 'Default value' if a value is not supplied.
+
+
 -? : Enter this help screen then exit
 
 Using the program:
   - Use W, A, S, D to move forwards, left, backwards, and right respectively.
   - Use R, F to move up and down respectively.
   - Use the arrow keys to rotate the camera.
-  - '[', ']' to decrease and increase delta time.
-  - ',', '.' to decrease and increase the screen depth.
-  - 'n', 'm' to start recording and playing the buffer. The simulation will be paused while recording.
   - Space to pause the simulation. (Movement is still allowed)
-  - 'I' will set the simulation to run at real time (ish).
-  - '\\' will reverse time.
-  - Click any particle to set the camera to track that particle.
-  - Right click any particle to fix the camera's rotation on that particle.
-  - Cycle through targeted particles with Tab/shift-Tab. (Available only in preset 3)
-		Once a particle is targeted, pressing T and Y will toggle pan and rotational
-		tracking respectively.
-  - Press 'G' to go to a selected target.
-  - To stop tracking, click (and/or right click) on empty space or another particle.
-  - To clear the target selection, press C
   - End the simulation with Esc.
 
-*Test mode: There are some hard coded time, position and velocity snapshots for various
-bodies in the simulation, with data taken from the same source as the start positions, but
-anywhere between 92 minutes and a month later, and so show the correct positions and velocities
-that those bodies should have. Test mode will use the delta time step given by the command line
-argument (or the default) and nothing else. No graphics will be drawn, instead the program will
-simply step its way through to each relevant time until each of the bodies with test data can
-have their correct position and velocity compared with the correct values.""")
+Arguments:
+{' Key':<9} | {'Type':<5} | {'Default':<10} | {'Value': <6} | {'Default':<10}
+{'   ':<9} | {'    ':<5} | {'       ':<10} | {'needed':<6} | {' value':<10}
+{arglist_full}
+ 
+""")
+# Stuff from Orbits4T:
+# 
+# 
+#   - '[', ']' to decrease and increase delta time.
+#   - ',', '.' to decrease and increase the screen depth.
+#   - 'n', 'm' to start recording and playing the buffer. The simulation will be paused while recording.
+#   - 'I' will set the simulation to run at real time (ish).
+#   - '\\' will reverse time.
+#   - Click any particle to set the camera to track that particle.
+#   - Right click any particle to fix the camera's rotation on that particle.
+#   - Cycle through targeted particles with Tab/shift-Tab. (Available only in preset 3)
+# 		Once a particle is targeted, pressing T and Y will toggle pan and rotational
+# 		tracking respectively.
+#   - Press 'G' to go to a selected target.
+#   - To stop tracking, click (and/or right click) on empty space or another particle.
+#   - To clear the target selection, press C
+
+# *Test mode: There are some hard coded time, position and velocity snapshots for various
+# bodies in the simulation, with data taken from the same source as the start positions, but
+# anywhere between 92 minutes and a month later, and so show the correct positions and velocities
+# that those bodies should have. Test mode will use the delta time step given by the command line
+# argument (or the default) and nothing else. No graphics will be drawn, instead the program will
+# simply step its way through to each relevant time until each of the bodies with test data can
+# have their correct position and velocity compared with the correct values.
 		exit()
 	argv = sys.argv
 	for arg in args:
-		args[arg].append(False) # This last value keeps track of whether or not the argument has been specified by the user
+		args[arg][0].append(False) # This last value keeps track of whether or not the argument has been specified by the user
 	for i, arg in enumerate(argv):
 		if arg in args:
-			if (args[arg][-1]):
+			if (args[arg][0][-1]):
 				print("%s supplied multiple times." % (arg))
 			try:
-				if args[arg][2]:
+				if args[arg][0][2]:
 					if argv[i + 1] in args:
 						raise IndexError # If the next arg is an arg keyword (eg -p, -d) then the parameter is missing
-					args[arg][1] = args[arg][0](argv[i + 1])
-				else: # No parameter needed, set it to args[arg][3]
+					args[arg][0][1] = args[arg][0][0](argv[i + 1])
+				else: # No parameter needed, set it to args[arg][0][3]
 					if (len(argv) > i + 1 and (argv[i + 1] not in args)):
 						if (argv[i + 1] == "False"):
-							args[arg][1] = False
+							args[arg][0][1] = False
 						elif (argv[i + 1] == "True"):
-							args[arg][1] = True
+							args[arg][0][1] = True
 						else:
-							args[arg][1] = args[arg][0](argv[i + 1])
+							args[arg][0][1] = args[arg][0][0](argv[i + 1])
 					else:
-						args[arg][1] = args[arg][3]
-				args[arg][-1] = True
+						args[arg][0][1] = args[arg][0][3]
+				args[arg][0][-1] = True
 			except ValueError:
 				print("Wrong usage of {}".format(arg))
 			except IndexError:
@@ -223,39 +203,39 @@ else:
 	print("Now onto a very lame default simulation...")
 	time.sleep(1)
 
-Delta			        = args["-d"][1]
-PARTICLE_COUNT	        = args["-n"][1]
-PRESET			        = args["-p"][1]
-STAGGERED_SIM	        = args["-ss"][1]
-START_PAUSED	        = args["-sp"][1]
-PRINT_DATA		        = args["-pd"][1]
-defaultScreenDepth	    = args["-sd"][1]
-maxPan			        = args["-ps"][1]
-rotSpeed		        = args["-rs"][1]
-showMarkers		        = args["-mk"][1]
-ellipsePoints	        = args["-ep"][1]
-smoothFollow	        = args["-sf"][1]
-DRAW_VEL_VECS	        = args["-vv"][1]
-ALWAYS_DRAW		        = args["-ad"][1]
-variableMass	        = args["-vm"][1]
-DATA_FILE		        = args["-df"][1]
-drawStars		        = args["-ds"][1]
-makeAsteroids 	        = args["-ab"][1]
-makeSatellites	        = args["-es"][1]
-writeBuffer		        = args["-WB"][1]
-FRAME_LIMIT 	        = args["-flim"][1]
-getStars 		        = args["-getStars"][1]
-DEMO                    = args["-demo"][1]
+Delta			        = get_arg_val("-d")
+PARTICLE_COUNT	        = get_arg_val("-n")
+PRESET			        = get_arg_val("-p")
+STAGGERED_SIM	        = get_arg_val("-ss")
+START_PAUSED	        = get_arg_val("-sp")
+# PRINT_DATA		        = get_arg_val("-pd")
+defaultScreenDepth	    = get_arg_val("-sd")
+maxPan			        = get_arg_val("-ps")
+rotSpeed		        = get_arg_val("-rs")
+showMarkers		        = get_arg_val("-mk")
+ellipsePoints	        = get_arg_val("-ep")
+smoothFollow	        = get_arg_val("-sf")
+DRAW_VEL_VECS	        = get_arg_val("-vv")
+ALWAYS_DRAW		        = get_arg_val("-ad")
+variableMass	        = get_arg_val("-vm")
+# DATA_FILE		        = get_arg_val("-df")
+drawStars		        = get_arg_val("-ds")
+# makeAsteroids 	        = get_arg_val("-ab")
+# makeSatellites	        = get_arg_val("-es")
+# writeBuffer		        = get_arg_val("-WB")
+FRAME_LIMIT 	        = get_arg_val("-flim")
+getStars 		        = get_arg_val("-getStars")
+# DEMO                    = get_arg_val("-demo")
 
-presetMaker             = args["-PM"][1]
-presetShow              = args["-P?"][1]
+presetMaker             = get_arg_val("-PM")
+presetShow              = get_arg_val("-P?")
 
-TestMode 				= args["-test"][1]
-AUTO_ABORT              = args["-AA_OFF"][1]      # I wouldn't change this unless you know the programs good to go
+TestMode 				= get_arg_val("-test")
+AUTO_ABORT              = get_arg_val("-AA_OFF")      # I wouldn't change this unless you know the programs good to go
 
-SMART_DRAW_PARAMETER = args["-sdp"][1]     # Approx number of pixels between each point
+SMART_DRAW_PARAMETER = get_arg_val("-sdp")     # Approx number of pixels between each point
 
-MAX_POINTS = args["-me"][1]  # Lazy way of limiting the number of points drawn to stop the program
+MAX_POINTS = get_arg_val("-me")  # Lazy way of limiting the number of points drawn to stop the program
 							 # grinding to a halt everytime you get too close to a particle
 
 
@@ -293,9 +273,9 @@ STRN_RING_MIN_RADIUS  = 7e6
 STRN_RING_MAX_RADIUS  = 50e6
 STRN_RING_THICKNESS   = 1e5
   # Random planets settings
-randomPlanets         = args["-rp"][1]
-DEFAULT_SYSTEM_SIZE   = args["-asb"][1] # Default number of bodies to add to a system
-TRUE_NBODY            = args["-tn"][1]
+randomPlanets         = get_arg_val("-rp")
+DEFAULT_SYSTEM_SIZE   = get_arg_val("-asb") # Default number of bodies to add to a system
+TRUE_NBODY            = get_arg_val("-tn")
 
 # Preset 4
 PRESET_4_MIN_RADIUS = 40
@@ -323,14 +303,14 @@ BUFFER_DONT_DRAW = 9
 
 
 # Simulation settings
-REAL_TIME           = args["-rt"][1]
+REAL_TIME           = get_arg_val("-rt")
 voidRadius               = 50000000   # Maximum distance of particle from camera
 CAMERA_UNTRACK_IF_DIE = True # If the tracked particle dies, the camera stops tracking it
 SMART_DRAW = True               # Changes the number of points on each ellipse depeding on distance
 FPS_AVG_COUNT = 3        # Frames used to calculate long average. Less->current fps, more->average fps
-RECORD_SCREEN = args["-rg"][1]
-DRAW_MARKERS = args["-mk"][1]
-RELATIVITY_EFFECTS = args["-rel"][1]
+RECORD_SCREEN = get_arg_val("-rg")
+DRAW_MARKERS = get_arg_val("-mk")
+RELATIVITY_EFFECTS = get_arg_val("-rel")
 RELATIVITY_SPEED = 0
 
 SCREEN_SETUP  = False        # True when the screen is made, to avoid setting it up multiple times
@@ -358,7 +338,7 @@ MAG_SHIFT  = 0               # All apparent magnitudes are shifted by this amoun
 MIN_CLICK_RESPONSE_SIZE = 15 # Radius of area (in pixels) around centre of object that can be clicked
 							 # depending on its size
 MIN_BOX_WIDTH = 50
-COMPLEX_FLARE = args["-cf"][1]
+COMPLEX_FLARE = get_arg_val("-cf")
 SHOW_SCREENDEPTH = True
 
 MAX_RINGS = 80 # Maximum number of rings to draw to create a flare
@@ -367,7 +347,7 @@ MAX_RINGS = 80 # Maximum number of rings to draw to create a flare
 EXPOSURE = 1                 # The width of the flares are multiplied by this
 # EXP_COEFF = 400
 MAX_EXPOSURE = 1e20
-AUTO_EXPOSURE = args["-ae"][1]
+AUTO_EXPOSURE = get_arg_val("-ae")
 AUTO_EXPOSURE_STEP_UP = 0.2      # Coeffecient of the log of the current exposure to step up and down
 AUTO_EXPOSURE_STEP_DN = 0.9     # When decreasing exposure, mimic a 'shock' reaction
 #                               # By going faster down in exposure. (This is close the human eye's behaviour i think)
@@ -387,7 +367,7 @@ FLARE_POLY_POINTS = 20
 FLARE_POLY_MAX_POINTS = 100
 MIN_RMAG = 0.01             # min 'brightness' of the rings in a flare. Might need to differ across machines.
   # Diffraction variables
-DIFF_SPIKES = args["-dfs"][1]
+DIFF_SPIKES = get_arg_val("-dfs")
 PRIMARY_WAVELENGTH = 600E-9  # Average wavelength of light from stars. in m.
 FOCAL_LENGTH = 5e-3           # Focal length of the 'eyeball' in the camera
 PUPIL_WIDTH_FACTOR = 0.01   # This multiplied by the exposure gives the width of the pupil in calculations

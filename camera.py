@@ -172,14 +172,17 @@ class Camera:
         # Get relative position:
         self_pos = np.tile(self.pos, (N, 1))
         rel_pos  = pos - self_pos
+        screen_Z = np.sum(rel_pos)
         rel_dist = np.linalg.norm(rel_pos, 2, axis=-1)
         min_idx = np.argmin(rel_dist)
         self._closest_particle = min_idx
         self._closest_centre_loc = pos[min_idx]
         self._closest_surface_dist = rel_dist[min_idx] - radius[min_idx]
         ### Do some math
-        # Get distance from camera to point on screen:        \/ row wise dot product
-        dist_to_screen    = self._screen_depth * rel_dist / (np.sum(rel_pos*look_array, axis=-1))
+        #             \/ row wise dot product
+        screen_Z = np.sum(rel_pos*look_array, axis=-1)
+        # Get distance from camera to point on screen:        
+        dist_to_screen    = self._screen_depth * rel_dist / screen_Z
         # Vector to point on screen
         rel_pos_on_screen = rel_pos * (dist_to_screen / rel_dist).reshape((N, 1))
 
@@ -194,9 +197,9 @@ class Camera:
         angle_width  = np.arcsin(radius / rel_dist)
 
         # Distance from point on screen to screen centre
-        dist_screen_centre = np.sqrt(screen_X**2 + screen_Y**2)
-        major_axis = 2 * (dist_screen_centre +
-                     self._screen_depth * np.tan(angle_width - np.arctan(dist_screen_centre / self._screen_depth)))
+        rel_pos_on_screen = np.sqrt(screen_X**2 + screen_Y**2)
+        major_axis = 2 * (rel_pos_on_screen +
+                     self._screen_depth * np.tan(angle_width - np.arctan(rel_pos_on_screen / self._screen_depth)))
         minor_axis = 2 * self._screen_depth * np.tan(angle_width)
 
         # Get rotation of oval on screen:
@@ -212,7 +215,7 @@ class Camera:
         rot[np.logical_and(neg_x, neg_y)] -= np.pi
         rot[np.logical_and(neg_x, pos_y)] += np.pi
 
-        return (screen_X, screen_Y, major_axis, minor_axis, rot)
+        return (screen_X, screen_Y, screen_Z, major_axis, minor_axis, rot)
 
 
 

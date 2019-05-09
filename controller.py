@@ -1,5 +1,6 @@
 # Functions to handle controlling the simulation
 
+# Define some flags that can get imported into main modules:
 _controller_flags = {
     'sim_paused': False,
     'sim_running': True,
@@ -9,6 +10,16 @@ _controller_flags = {
 }
 
 _change_flags = {f:False for f in _controller_flags}
+
+_cycle_target = None
+_tracking_pos = None
+_tracking_look = None
+_click_store = []
+# When changing, multiply current screen depth to get
+# the new one desired by user
+_screen_depth_multiplier = 1 
+_time_step_multiplier = 1
+
 
 def get_flag_if_changed(flag, ignore=False):
     """
@@ -143,4 +154,50 @@ def escape():
 
 def pause():
     set_flag('sim_paused', not _controller_flags['sim_paused'])
+
+    
+def cycleTargets():
+    global _cycle_target
+    _cycle_target = True
+    pass
+
+def toggleRotTrack():
+    pass
+
+def clearTarget():
+    pass
+
+def goToTarget():
+    pass
+
+def togglePanTrack():
+    pass
+
+def get_click():
+    # Retrieve and remove the earliest unseen click.
+    global _click_store
+    out = _click_store.pop(0)
+    return out
+
+# 0 for left click, 1 for right
+def leftClick(x, y):
+	_click_store.append([x, y, 0])
+
+def rightClick(x, y):
+	_click_store.append([x, y, 1])
+
+def get_screen_depth_mult():
+    global _screen_depth_multiplier
+    out = _screen_depth_multiplier
+    _screen_depth_multiplier = 1
+    return out
+
+def upScreenDepth():
+    global _screen_depth_multiplier
+    _screen_depth_multiplier = 1.05
+
+
+def downScreenDepth():
+    global _screen_depth_multiplier
+    _screen_depth_multiplier = 1/1.05
 
