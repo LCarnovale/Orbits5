@@ -13,14 +13,30 @@ from args_parser import *
 from controller import *
 
 
+_window = None
+
+def screen_width():
+    try:
+        return _window.window_width()
+    except:
+        return None # Raise exception?
+    
+def screen_height():
+    try:
+        return _window.window_height()
+    except:
+        return None # Raise exception?
+    
+
 def canvas_init():
+    global _window
     window = turtle.Screen()
     turtle.hideturtle()
     window.setup(width = 1.0, height = 1.0)
     window.bgcolor([0, 0, 0])
-
     window.tracer(0, 0)             # Makes the turtle's speed instantaneous
     bind_input()
+    _window = window
     return window
 
 
@@ -63,9 +79,12 @@ def draw_all(x, y, z, major, minor, angle, fill = [0,0,0],
     global totalIncidentIntensity
     global FLARE_POLY_POINTS
 
-    mask = (z > 0) 
+    mask = (z > 0)
+    mask = np.logical_and(mask, np.abs(x) < screen_width()/2)
+    mask = np.logical_and(mask, np.abs(y) < screen_height()/2)
     sort_mask = np.argsort(z)[::-1]
     mask = mask[sort_mask]
+    
     if box:
         if mask[box]:
             box_x = x[box]
@@ -272,7 +291,7 @@ def bind_input():
     #
     # turtle.onkey(upDelta, "]")
     # turtle.onkey(downDelta, "[")
-    # turtle.onkey(revDelta, "\\")
+    turtle.onkey(reverse_time, "\\")
     #
     turtle.onscreenclick(leftClick, 1)
     turtle.onscreenclick(rightClick, 3)
