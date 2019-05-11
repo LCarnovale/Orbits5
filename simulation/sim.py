@@ -43,20 +43,13 @@ class SystemError(SimulationError):
             msg = 'A System error has occured'
         super().__init__(msg=msg, system=system)
 
-class BufferError(Exception):
-    def __init__(self, msg=None, buffer=None):
-        if not msg:
-            msg = 'A Buffer error has occured'
-        if buffer:
-            msg += f'\nBuffer: {buffer}'
 
-        super().__init__(msg)
 
 
 
 
 class System:
-    def __init__(self, position, velocity=None, mass=None, radius=None, info=None):
+    def __init__(self, position, velocity=0., mass=0., radius=0., info=None):
         """
         args:
             required: position
@@ -99,18 +92,37 @@ class System:
         self._info = info
 
 
-        self._pos = np.asarray(position).astype(np.float64)
+        self._pos = np.asarray(position)
         self._prev_pos = None  # Used to get the change in position of a particle
                               # after a step
         self._pos_delta = np.zeros(self._pos.shape, dtype=np.float64)
-        if np.isscalar(velocity) and velocity is not None:
-            velocity = np.full(position.shape, velocity, dtype=np.float64)
+        
+        if np.isscalar(velocity):
+            velocity = np.full(self._pos.shape, velocity, dtype=np.float64)
+        else:
+            try:
+                velocity = np.asarray(velocity)
+            except:
+                pass
+
         self._vel = velocity
-        if np.isscalar(mass) and mass is not None:
-            mass = np.full(position.shape[0], mass, dtype=np.float64)
+        if np.isscalar(mass):
+            mass = np.full(self._pos.shape[0], mass, dtype=np.float64)
+        else:
+            try:
+                mass = np.asarray(mass)
+            except:
+                pass
+
         self._mass = mass
-        if np.isscalar(radius) and radius is not None:
-            radius = np.full(position.shape[0], radius, dtype=np.float64)
+        if np.isscalar(radius):
+            radius = np.full(self._pos.shape[0], radius, dtype=np.float64)
+        else:
+            try:
+                radius = np.asarray(radius)
+            except:
+                pass
+
         self._radius = radius
 
             
@@ -293,18 +305,27 @@ class System:
 
     def initialize_info(self, key, dim, fill=0., masked=False):
         """
-        Adds an empty Nxdim array to self.info under the given key
+        Adds an empty N x 'dim' array to self.info under the 'key'
 
         fill: default 0.0, value to fill the new array with
         masked: default False, if True then output will be masked by the active mask.
+
+        If the key already exists, do nothing.
         """
-        if dim:
-            array = np.full((self.Nfull, dim), fill)
+        try:
+            _ = self.get(key)
+        except:
+            # The key does not exist, make it now
+            if dim:
+                array = np.full((self.Nfull, dim), fill)
+            else:
+                array = np.full((self.Nfull), fill)
+            if masked: self._masked_attributes.append(key)
+            self._info[key] = array
+            return 
         else:
-            array = np.full((self.Nfull), fill)
-        if masked: self._masked_attributes.append(key)
-        self._info[key] = array
-        pass
+            # the key already exists.
+            return
 
     def add_particle(self, position, velocity=None, mass=None, radius=None):
         """
@@ -424,7 +445,7 @@ initially given to __init__",
             A and B.
             *** If B is to be actually killed / inactivated, the function
                 should return B. Deactivating B inside the kill_func can have
-                unpredictable (bad) effects.
+                unpredictable (bad) effects. If nothing is being killed, return None
 
         Returns the number of particles 'deactivated'.
         """
@@ -438,8 +459,11 @@ initially given to __init__",
         B = collisions[mask]
         kill_list = np.full(len(A), -1)
         if DELETE_FORCE_LOOP:
-            for i, (a, b) in enumerate(zip(A, B)):
-                kill_list[i] = kill_func(self, a, b)
+            for i in range(len(A)):
+                a = A[i:i+1]
+                b = B[i:i+1]
+                k_res = kill_func(self, a, b)
+                if k_res is not None: kill_list[i] = k_res
         else:
             kill_list = kill_func(self, A, B)
         kill_list = np.array(list(set(kill_list)))
@@ -873,6 +897,14 @@ or the buffer (sim.stored)""")
     def func(self):
         return self._func
 
+    def kill_func():
+        def fget(self):
+            return self._kill_func
+        def fset(self, func):
+            self._kill_func = func
+        return locals()
+    kill_func = property(**kill_func())
+
     def t_step():
         doc = "The t_step property."
         def fget(self):
@@ -936,7 +968,9 @@ def disc_sys(N, mass_props=(1, 0, 'normal'), radius_props=(10, 0, 'uniform'),
     temp_vec[0] += 1 
     temp_vec[1] -= 1
     x_unit = np.cross(temp_vec, z_unit)
+    x_unit /= math.sqrt(np.dot(x_unit, x_unit))
     y_unit = np.cross(z_unit, x_unit)
+    y_unit /= math.sqrt(np.dot(y_unit, y_unit))
     angle = np.random.random(N) * 2*np.pi   # angle in disc
     x  = r * np.cos(angle);# x = x.transpose()
     y  = r * np.sin(angle);# y = y.transpose()  

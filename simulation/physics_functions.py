@@ -69,11 +69,16 @@ def circularise(sys, A, B, f_func, axis):
     sys.set('vel', [vA_new, vB_new], index=[A, B])
 
 
+zero_if_clipping = True
 def GravityNewtonian(sys):
     """
     F = -G m1 m2 / r^2
 
     Requires mass
+    If zero_if_clipping (module variable) is set to True,
+    then force is set to zero if particles are clipping.
+    Only works if radius is available, and requires a bit of extra
+    processing.
 
     Returns Force
     """
@@ -81,10 +86,8 @@ def GravityNewtonian(sys):
 
     ### Calculate a tensor for r:
     # Tile the pos array:
-    # print("sys.pos.shape:", sys.pos.shape, "N:", sys.N)
     POS_ALL = np.tile(sys.pos, (sys.N, 1, 1))
     POS_S = np.tile(sys.pos, (1, 1, sys.N)).reshape(POS_ALL.shape)
-    # print("sys.pos.shape:", sys.pos.shape, "N:", sys.N)
 
     D = POS_S - POS_ALL # r vector
     D2 = np.linalg.norm(D, 2, axis=-1)**2 # D2 is now an N x N grid of distances (with 0 on diagonals)
@@ -93,6 +96,16 @@ def GravityNewtonian(sys):
 
     F_OUT = np.zeros(M_PROD.shape)
     np.divide(G * M_PROD, D2, where=D2>0, out=F_OUT)
+    if zero_if_clipping:
+        if np.any(sys.radius):
+            # Straight from System.get_collisions():
+            D1 = D2 ** (0.5)
+            # Get combined radii:
+            RM = sys.radius.reshape(1, -1)
+            Rgrid = RM + RM.transpose()
+            collision_mask = D1 < Rgrid
+            F_OUT[collision_mask] *= 0.1
+
     # F_OUT contains magnitude of forces between each particle
     F3 = F_OUT.reshape((sys.N, sys.N, 1)).repeat(sys.dim, axis=-1)
     D_norm_const = np.sqrt(D2).reshape((sys.N, sys.N, 1)).repeat(sys.dim, axis=-1) # Force times normalised direction

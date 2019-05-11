@@ -9,7 +9,7 @@ import math
 import numpy as np
 import turtle
 import matplotlib.pyplot as plt
-import simulation
+import simulation.sim_funcs
 from simulation.sim import Simulation, System
 from camera import Camera
 from controller import *
@@ -20,7 +20,9 @@ import loadSystem
 
 from simulation.physics_functions import GravityNewtonian
 FORCE_F = GravityNewtonian
+
 from sim_funcs import leapfrog_init, leapfrog_step, RK4_init, RK4_step
+from sim_funcs import kill_bounce
 mi = get_arg_val("-mi")
 if mi == 'leapfrog':
     INIT_F = leapfrog_init
@@ -34,19 +36,24 @@ def main():
     from sim import big_buffer
 
     simulation.physics_functions.GRAVITATIONAL_CONSTANT = get_arg_val('-G')
-    track_delta = True
+    track_delta = False
     simulation.sim.DEFAULT_BUFFER_ATTRS += ['com']
     buffer_steps = 1
     cam_pos = 0
+    cam_look = 0
     from simulation.sim import disc_sys
 
     if START_PAUSED:
         pause()
-    if PRESET == '1':
+    if PRESET == '0':
+        Sys = System([[5, .5, 0,], [-5, -.5, 0]], velocity=[[-1.0, 0, 0,], [1.0, 0, 0]], mass=1., radius=1.)
+        Sim = Simulation(Sys, FORCE_F, t_step=get_arg_val('-d', 0.1))
+        cam_pos = np.array([0, 0, 55])
+        cam_look = np.array([0, 0, -1])
+    elif PRESET == '1':
         # Simple 3 tier star-planet-moon solar system,
         # with a 4th stationary object falling into the middle.
         Sim = simple_system()
-        Sim.buffer(1)
     elif PRESET == '2':
         kwargs = {
             'mass_props':(10, 0, 'normal'), 
@@ -55,7 +62,7 @@ def main():
             'vel':('circ', FORCE_F), 
         }
         disc1 = disc_sys(PARTICLE_COUNT, **kwargs)
-        disc2 = disc_sys(PARTICLE_COUNT, **kwargs, axis=[0, 0, -1])
+        disc2 = disc_sys(PARTICLE_COUNT, **kwargs, axis=[0, 0, 1])
         shift = get_arg_val("-dr", 10) * np.array([0, 1, 0])
         disc1.pos += shift
         disc2.pos -= shift
@@ -86,8 +93,10 @@ def main():
     elif PRESET == '4':
         # Rings around a planet
         Sim = rings(get_arg_val('-d', 0.005))
+        Sim.sys.initialize_info('force', 3, 0., True)
+        Sim.track('force')
         buffer_steps = 5
-        Sim.buffer(300, verb=True, n=buffer_steps, append_buffer=True)
+        Sim.buffer(100, verb=True, n=buffer_steps, append_buffer=True)
     elif PRESET == '5':
         from simulation.sim import disc_merger
         Sys = disc_merger(
@@ -149,16 +158,15 @@ def main():
         Sim = Simulation(Sys, FORCE_F, get_arg_val('-d', 0.001))
         # Sim.track('force')
     elif PRESET=='7':
+        min_dist = 6
+        max_dist = 25
         star = [[0., 0., 0.]]; star_m = 1e4; star_rad = 4
         planet_count = get_arg_val('-n', 10)
-        planet_dist = np.linspace(6, 25, planet_count).reshape(-1, 1)
+        planet_dist = np.linspace(min_dist, max_dist, planet_count).reshape(-1, 1)
         planet_pos = np.array([[1., 0, 0,]]) * planet_dist
         pos = np.append(star, planet_pos, axis=0)
-        mass = np.array([star_m, *([10]*planet_count)])
-        radius = np.array([star_rad, *([0.2]*planet_count)])
-        print(pos.shape)
-        print(mass.shape)
-        print(radius.shape)
+        mass = np.array([star_m, *([1e-2]*planet_count)])
+        radius = np.array([star_rad, *([(max_dist - min_dist)/planet_count * 0.9/2]*planet_count)])
         Sys = System(pos, 0., mass, radius)
         for i in range(1, planet_count+1):
             simulation.physics_functions.circularise(Sys, i, 0, FORCE_F, [0, 0, 1])
@@ -169,11 +177,29 @@ def main():
     else:
         print(f"Preset {PRESET} does not exist.")
         return 0
+
+    if get_arg_val('-bounce'):
+        simulation.sim.FORCE_KILL_LOOP = True
+        simulation.sim_funcs.bounce_damping = get_arg_val('-bdamp')   
+        Sim.kill_func = simulation.sim_funcs.kill_bounce
+    if get_arg_val('-spin'):
+        Sim.sys.initialize_info('spin', 3, 0., True)
+        # Sim.sys.vel *= 0.8
+        if PRESET == '0':
+            Sim.sys.set('spin', [0., 0., -5.], 1)
+            print(Sim.sys.spin)
+            # Sim.spin[-1] = [0, -10.0, 0]
+    Sim.sys.vel *= get_arg_val('-sm')
+
+
     # if arg_supplied('-d'):
     #     Sim.t_step = get_arg_val('-d')
     Sim.init_sim()
-    camera = Camera(Sim, pos=cam_pos + Sim.com + np.array([40., 0, 40]), look=np.array([-1., 0, -1]), screen_depth=1000)
-    camera.set_X_Y_axes(new_Y = np.array([-1., 0, 1]))
+    if not np.any(cam_look):
+        cam_look = np.array([-1., 0, -1])
+
+    camera = Camera(Sim, pos=cam_pos + Sim.com, look=cam_look, screen_depth=1000)
+    camera.set_X_Y_axes(new_Y = np.array([0., 1, 0]))
 
     # Call this to set the window up.
     canvas_init()
@@ -185,6 +211,13 @@ def main():
     sleep = 0.
     top_shader = 10. # Used to keep a consistent shading spectrum
     while get_running() is not False:
+        t_mult = get_time_mult()
+        if t_mult == -1:
+            Sim.sys.vel *= -1
+            try:
+                Sim.spin *= -1
+            except:
+                pass
         if sleep > 0: time.sleep(sleep)
         new_pause = get_pause()
         if new_pause != None:
@@ -209,7 +242,6 @@ def main():
         if np.any(camera.vel):
             new_pan = get_pan(True)
         if new_pan != None:
-            # render = camera.render()
             camera.vel = 0.06 * new_pan[3] * camera.closest_surface_dist * (
                 camera.screen_X_axis_norm * new_pan[0] +
                 camera.screen_Y_axis_norm * new_pan[1] +
@@ -227,7 +259,8 @@ def main():
         camera.step(1.)
         try:
             F_mag = (np.linalg.norm(Sim.force, 2, axis=-1))
-            F_mag /= Sim.mass # otherwise big bodies get too biased
+            # F_mag /= Sim.mass # otherwise big bodies get too biased
+            F_mag = np.sqrt(F_mag)
             F_max = max(F_mag)
             # top_shader = F_max
             # top_shader = np.mean(F_mag)
@@ -250,11 +283,21 @@ def main():
             else:
                 F_mag = F_mag / top_shader
                 F_mag[F_mag > 1] = 1
-                # print(F_mag[1], end = '')
+                
                 shading = np.array(
                     # [F_mag / top_shader, 1 - F_mag/top_shader, 0.*F_mag]
-                    [F_mag, 0.*F_mag, 1 - F_mag]
+                    [F_mag, 1 - F_mag, 0.*F_mag]
                 ).transpose()
+        try:
+            shading = Sim.spin * Sim.mass.reshape(-1, 1)
+            # if np.any(shading != 0): shading /= np.max(np.abs(shading))
+            shading = shading[:,2]
+            shading = np.tanh(shading)
+            shading = np.array([0.5+shading/2, 0.*shading, 0.5-shading/2]).transpose()
+            # shading += 1
+            # shading[:,0] = 1
+        except Exception as e:
+            pass
                 # shading = shading.tolist()
         # print(shading) 
         if not (get_arg_val('-db') and Sim.paused):
@@ -274,6 +317,9 @@ Time: {1000*step_t:.3f}ms [+ {1000*draw_t:.3f}ms]"""
         sys.stdout.flush()
 
         sleep = 0.02 - (step_t + draw_t)
+        if (Sim.paused and get_arg_val('-db')): 
+            # Don't sleep if nothing's on the screen
+            sleep = 0
         frame_update()
     print()
 
@@ -287,7 +333,7 @@ def simple_system():
     p4 = np.array([20, 0, 0], dtype=float)
     S = [0, 1, 2, 3]
     r  = np.array([1, 0.2, 0.01, 1])[S]
-    m = np.array([100, 10, 1, 0.2])[S]
+    m = np.array([100, 10, 1, 100])[S]
     Sys = System(np.array([p1, p2, p3, p4])[S], velocity=0.0, mass=m, radius=r)
     Sim = Simulation(Sys, FORCE_F, t_step=0.01, step_func=STEP_F, init_func=INIT_F)
 
@@ -302,16 +348,16 @@ def rings(t_step=0.0005):
     # from physics_functions import GravityNewtonian as FORCE_F
     simulation.physics_functions.GRAVITATIONAL_CONSTANT = get_arg_val('-G')    
     planet = [0., 0., 0.]; p_r = 10.
-    moon   = [60., 0., 0.]; m_r = 2.
+    moon   = [30., 0., 0.]; m_r = 0.5
     rand_angle = np.random.random(PARTICLE_COUNT) * np.pi * 2
-    rand_dist  = np.random.random(PARTICLE_COUNT) * 5 + 15
+    rand_dist  = np.random.random(PARTICLE_COUNT) * 30 + 15
     rand_p     = np.array([np.cos(rand_angle), 
                            np.sin(rand_angle), 
                            np.random.normal(scale=0.01, size=PARTICLE_COUNT)]).transpose()
     rand_p    *= rand_dist.reshape(-1, 1)
-    mass = np.full(PARTICLE_COUNT+2, 20. / PARTICLE_COUNT)
+    mass = np.full(PARTICLE_COUNT+2, 1e-5)
     mass[0] = 1000
-    mass[-1] = 2
+    mass[-1] = 1
     radius = np.full(PARTICLE_COUNT+2, 0.05)
     radius[0] = p_r
     radius[-1] = m_r

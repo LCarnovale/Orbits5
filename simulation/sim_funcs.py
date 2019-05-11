@@ -58,7 +58,7 @@ def leapfrog_init(sys, f_func, t_step):
     # Go a half step backwards:
     F = f_func(sys)
     F = F['force']
-    A = F / sys.mass.reshape(sys.N, 1)
+    A = F / sys.mass.reshape(-1, 1)
     sys.vel = sys.vel - 1/2 * t_step * A
 
     return sys
@@ -135,3 +135,164 @@ These collisions may result in unexpected behaviour.
 Turn on the DELETE_FORCE_LOOP option to avoid this. """)
         _warning_flag = True
     return B
+
+bounce_damping = 1
+friction_coeff = 5e-4
+def kill_bounce(sys, A, B):
+    """
+    Make colliding particles 'bounce'.
+    
+    Tangential components are constant,
+    Normal components are reflected.
+    If spin is available, impulse on spin is calculated.
+    
+    Total output speed is reduced by bounce_damping.
+    
+    Centre of mass movement is conserved.
+    
+    Particles are never killed, so systems with this
+    will not run faster over time like other functions. 
+    """
+    posA = sys.pos[A];  posB = sys.pos[B]
+    mA = sys.mass[A]; mB = sys.mass[B]
+    vA_abs = sys.vel[A];  vB_abs = sys.vel[B]
+    rA = sys.radius[A]; rB = sys.radius[B]    
+    # displacement vector, distance and normalized vectors:
+    vAB = posA - posB
+    dAB = np.linalg.norm(vAB, 2, axis=-1)
+    nAB = vAB / dAB
+    # momentum:
+    pA_abs = mA * vA_abs; pB_abs = mB * vB_abs
+    vCoM = (pA_abs + pB_abs) / (mA + mB)
+    # remove centre of mass velocity
+    vA = vA_abs - vCoM
+    vB = vB_abs - vCoM
+    # pA = mA * vA; pb = mB * vB
+    
+    # In centre of mass frame, velocity and momentum are
+    # baaaasicallyyy the same (for this scenario) 
+    # (but not really) (but they're both conserved so y'know)
+    
+    # break into tangent and normal components
+    v_norm_A = np.dot(vA, nAB.transpose()) * nAB
+    v_norm_B = np.dot(vB, nAB.transpose()) * nAB
+    v_tan_A = vA - v_norm_A
+    v_tan_B = vB - v_norm_B
+    
+    # tangential components do not change,
+    # normal components have direction flipped.
+    # If the particle is heading out, then don't flip:
+    radial_sp_A = np.sum(v_norm_A * vAB)
+    radial_sp_B = -np.sum(v_norm_B * vAB)
+    v_norm_A[radial_sp_A < 0] *= -1
+    v_norm_B[radial_sp_B < 0] *= -1
+    
+
+    new_vel_A = (v_norm_A * bounce_damping + v_tan_A)
+    new_vel_B = (v_norm_B * bounce_damping + v_tan_B)
+    new_vel_A += vCoM
+    new_vel_B += vCoM
+
+    # Try account for spin
+    try:
+        sA = sys.spin[A]
+        sB = sys.spin[B]
+    except:
+        # no spin
+        pass
+    else:
+        # Get surface velocities
+        v_surf_A = v_tan_A + rA * np.cross( nAB, sA, axis=1)
+        v_surf_A_n = np.linalg.norm(v_surf_A, 2, axis=-1)
+        v_surf_B = v_tan_B + rB * np.cross(-nAB, sB, axis=1)
+        v_surf_B_n = np.linalg.norm(v_surf_B, 2, axis=-1)
+
+        v_norm_A_n = np.linalg.norm(v_norm_A, 2, axis=-1)
+        v_norm_B_n = np.linalg.norm(v_norm_B, 2, axis=-1)
+
+        # Get tangential impulse
+        delta_v = v_surf_A - v_surf_B
+        delta_v_n = np.linalg.norm(delta_v, 2, axis=-1)
+        
+        # These should be multiplied by mA, mB aswell, 
+        # but we can ignore them for now 
+        # (they get divided out later):
+        # _J_coeff = friction_coeff
+        J_tan_A = friction_coeff * mA * v_norm_A_n * (v_surf_A / v_surf_A_n)
+        J_tan_B = friction_coeff * mB * v_norm_B_n * (v_surf_B / v_surf_B_n)
+        # If the friction and/or speed of the collision is high enough, 
+        # the relative surface velocities will be reduced to zero, where friction
+        # also becomes zero.
+        # In this case the impulse cancels the relative surface speed,
+        # so it will be just mA*delta_v etc.
+        J_tan_A[np.linalg.norm(J_tan_A, 2, axis=-1) > delta_v_n*mA] = mA * delta_v
+        J_tan_B[np.linalg.norm(J_tan_B, 2, axis=-1) > delta_v_n*mB] = -mB * delta_v 
+        # The tangential impulse also gets added to the linear momentum 
+        J_net = J_tan_A - J_tan_B
+        new_vel_A -= J_net / mA
+        new_vel_B += J_net / mB
+
+        dL_A = rA * np.cross( nAB, J_tan_A, axis=1)
+        dL_B = rB * np.cross(-nAB, J_tan_B, axis=1)
+        # dL_A = -friction_coeff * mA * rA * np.sum(vA*nAB) * np.cross(nAB, vA) / np.linalg.norm(vA, 2, axis=-1)
+        # dL_B = -friction_coeff * mB * rB * np.sum(vB*nAB) * np.cross(nAB, vB) / np.linalg.norm(vB, 2, axis=-1)
+        # Note these are still both per mass, ie they should have
+        # mass multiplied to be physically correct. 
+        # get the current values of L for A and B
+        I_A = 2/5 * rA**2
+        I_B = 2/5 * rB**2
+        L_A = sA * I_A
+        L_B = sB * I_B
+        L_new_A = L_A + dL_A
+        L_new_B = L_B + dL_B
+        # now we can bring mass back in
+        s_new_A = L_new_A / (I_A * mA)
+        s_new_B = L_new_B / (I_B * mB)
+        if np.any(s_new_A == np.nan):
+            raise Exception
+
+        sys.set('spin', s_new_A, index=A)
+        sys.set('spin', s_new_B, index=B)
+        
+    # finally:
+    sys.set('vel', new_vel_A, index=A)
+    sys.set('vel', new_vel_B, index=B)
+
+    
+    # set positions so they just touch at the surfaces,
+    # to try avoid infinite clipping and aggressive bouncing
+    clipping = (rA+rB) - dAB
+    # keep mA*posA + mB*posB constant, 
+    # where dxA, dxB is change in position of A or B:
+    # ==> dxA*mA = -dxB*mB
+    # ==> dxA = -dxB*(mB/mA)
+    #     dxB = -dxA*(mA/mB) 
+    # And, dxA + dxB = -clipping
+    # ==> dxA(1 - mA/mB) = -clipping
+    # ==> dxB(mB/mA - 1) = -clipping  
+    
+    eq_mass_mask = mA != mB
+    dxA = np.zeros(clipping.size)
+    dxB = np.zeros(clipping.size)
+    if np.any(eq_mass_mask):
+        dxA[eq_mass_mask] = (
+            clipping[eq_mass_mask] / (
+                mA[eq_mass_mask]/mB[eq_mass_mask] - 1
+            )
+        )
+        dxB[eq_mass_mask] = (
+            clipping[eq_mass_mask] / (
+                1 - mB[eq_mass_mask]/mA[eq_mass_mask]
+            ) * -1
+        )
+
+    dxA[mA == mB] = (clipping / 2)
+    dxB[mA == mB] = -(clipping / 2)
+
+    new_pos_A = posA + dxA * nAB
+    new_pos_B = posB + dxB * nAB
+    index_mask = clipping > 0
+    sys.set('pos', new_pos_A[index_mask], index=A[index_mask])
+    sys.set('pos', new_pos_B[index_mask], index=B[index_mask])
+    
+    return None
