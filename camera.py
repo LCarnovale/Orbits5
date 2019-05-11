@@ -89,7 +89,10 @@ class Camera:
 
         self._rot_mat = rotation_matrix(self._rot)
         # self._screen_X_axis = np.array()
-        self.set_X_Y_axes(new_Y = np.array([0, 0, 1]))
+        new_Y = np.array([0, 1, 0])
+        if np.all(np.asarray(look) == new_Y):
+            new_Y = np.array([0, 0, 1])
+        self.set_X_Y_axes(new_Y=new_Y)
         # print(self._screen_X_axis)
         # print(self._screen_Y_axis)
         self._closest_particle = None
