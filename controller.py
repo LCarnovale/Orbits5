@@ -19,6 +19,11 @@ _click_store = []
 # the new one desired by user
 _screen_depth_multiplier = 1 
 _time_step_multiplier = 1
+def get_time_mult():
+    global _time_step_multiplier
+    out = _time_step_multiplier
+    _time_step_multiplier = 1
+    return out
 
 
 def get_flag_if_changed(flag, ignore=False):
@@ -200,4 +205,8 @@ def upScreenDepth():
 def downScreenDepth():
     global _screen_depth_multiplier
     _screen_depth_multiplier = 1/1.05
+
+def reverse_time():
+    global _time_step_multiplier
+    _time_step_multiplier = -1
 
