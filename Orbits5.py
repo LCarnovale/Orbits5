@@ -186,7 +186,7 @@ def main():
         Sim.sys.initialize_info('spin', 3, 0., True)
         # Sim.sys.vel *= 0.8
         if PRESET == '0':
-            Sim.sys.set('spin', [0., 0., -5.], 1)
+            Sim.sys.set('spin', [0., 0., -1], 1)
             print(Sim.sys.spin)
             # Sim.spin[-1] = [0, -10.0, 0]
     Sim.sys.vel *= get_arg_val('-sm')

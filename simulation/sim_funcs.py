@@ -137,7 +137,7 @@ Turn on the DELETE_FORCE_LOOP option to avoid this. """)
     return B
 
 bounce_damping = 1
-friction_coeff = 5e-4
+friction_coeff = 5e-3
 def kill_bounce(sys, A, B):
     """
     Make colliding particles 'bounce'.
@@ -254,9 +254,6 @@ def kill_bounce(sys, A, B):
         sys.set('spin', s_new_A, index=A)
         sys.set('spin', s_new_B, index=B)
         
-    # finally:
-    sys.set('vel', new_vel_A, index=A)
-    sys.set('vel', new_vel_B, index=B)
 
     
     # set positions so they just touch at the surfaces,
@@ -286,13 +283,18 @@ def kill_bounce(sys, A, B):
             ) * -1
         )
 
-    dxA[mA == mB] = (clipping / 2)
-    dxB[mA == mB] = -(clipping / 2)
+    dxA[mA == mB] =  (clipping / 2 - 1e-2*dAB)
+    dxB[mA == mB] = -(clipping / 2 - 1e-2*dAB)
 
     new_pos_A = posA + dxA * nAB
     new_pos_B = posB + dxB * nAB
     index_mask = clipping > 0
     sys.set('pos', new_pos_A[index_mask], index=A[index_mask])
     sys.set('pos', new_pos_B[index_mask], index=B[index_mask])
+
+    # finally:
+    sys.set('vel', new_vel_A, index=A)
+    sys.set('vel', new_vel_B, index=B)
+
     
     return None

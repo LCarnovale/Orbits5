@@ -12,7 +12,6 @@ default_masked_attributes = ['pos', 'vel', 'mass', 'radius', 'info']
 buffer.default_masked_attributes = default_masked_attributes
 
 def main():
-
     # s = big_buffer()
     # s = solar_system_sample()
     m = disc_merger()
