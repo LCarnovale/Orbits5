@@ -1,10 +1,13 @@
 import numpy as np
 
+from sim import default_masked_attributes
+# import sim
 
 PRINT_BUFFER_INLINE = True
-BUFFER_APPEND_PREALLOC = 100 # Number of rows to preallocate when adding to a buffer
-default_masked_attributes = None
 
+# default_masked_attributes = 
+
+BUFFER_APPEND_PREALLOC = 100 # Number of rows to preallocate when adding to a buffer
 
 class BufferError(Exception):
     def __init__(self, msg=None, buffer=None):

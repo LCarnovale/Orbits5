@@ -1,6 +1,6 @@
 # Calculates positions of particles on screen
 import numpy as np
-import sim
+from simulation.buffer import Buffer
 import math
 
 class CameraError(Exception):
@@ -149,17 +149,17 @@ class Camera:
             # active = buffer.active'][frame]
             # radius = buffer.radius'][frame][active]
             # pos = buffer['pos[frame][active]
-            if type(source) == sim.Buffer:
+            if type(source) == Buffer:
                 active = source.active[frame]
                 pos = source.pos[frame][active]
                 radius = source.radius[frame][active]
             else:
-                pos = source.pos
-                radius = source.radius
-            if (np.shape(pos)[1] != 3 or
-                len(np.shape(radius)) != 1):
-                print(pos.shape, radius.shape)
-                raise CameraError
+                pos = source.pos[0]
+                radius = source.radius[0]
+            # if (np.shape(pos)[-1] != 3 or
+            #     len(np.shape(radius)) != 1):
+            #     print(pos.shape, radius.shape)
+            #     raise CameraError("")
 
         else:
             pos = self._sim.pos
@@ -175,7 +175,7 @@ class Camera:
         # Get relative position:
         self_pos = np.tile(self.pos, (N, 1))
         rel_pos  = pos - self_pos
-        screen_Z = np.sum(rel_pos)
+        # screen_Z = np.sum(rel_pos, axis=-1)
         rel_dist = np.linalg.norm(rel_pos, 2, axis=-1)
         min_idx = np.argmin(rel_dist)
         self._closest_particle = min_idx
@@ -187,7 +187,7 @@ class Camera:
         # Get distance from camera to point on screen:        
         dist_to_screen    = self._screen_depth * rel_dist / screen_Z
         # Vector to point on screen
-        rel_pos_on_screen = rel_pos * (dist_to_screen / rel_dist).reshape((N, 1))
+        rel_pos_on_screen = rel_pos * (dist_to_screen / rel_dist).reshape((-1, 1))
 
         screen_X = np.sum(rel_pos_on_screen * self.screen_X_axis_norm, axis=-1)
         screen_Y = np.sum(rel_pos_on_screen * self.screen_Y_axis_norm, axis=-1)

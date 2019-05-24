@@ -4,7 +4,7 @@
 # particles in sys.
 
 import numpy as np
-from sim import System
+from system import ClassicSystem as CSystem
 
 class FunctionError(Exception):
     def __init__(self, msg):
@@ -98,7 +98,7 @@ def GravityNewtonian(sys):
     np.divide(G * M_PROD, D2, where=D2>0, out=F_OUT)
     if zero_if_clipping:
         if np.any(sys.radius):
-            # Straight from System.get_collisions():
+            # Straight from CSystem.get_collisions():
             D1 = D2 ** (0.5)
             # Get combined radii:
             RM = sys.radius.reshape(1, -1)
@@ -120,7 +120,7 @@ if __name__ == '__main__':
     # main()
     a = np.array([[1,1], [5,1], [3, 4]])
     m = np.array([3, 6, 1])
-    sys = System(a, np.zeros(a.shape), mass=m)
+    sys = CSystem(a, np.zeros(a.shape), mass=m)
     print(f"Starting with positions: \n{a}\nMasses: \n{m}")
     print(f"System: {sys}")
     print("Calculating force,")

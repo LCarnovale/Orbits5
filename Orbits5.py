@@ -10,7 +10,8 @@ import numpy as np
 import turtle
 import matplotlib.pyplot as plt
 import simulation.sim_funcs
-from simulation.sim import Simulation, System
+from simulation.sim import Simulation
+from simulation.system import System, ClassicSystem
 from camera import Camera
 from controller import *
 from turtle_graphics import *
@@ -46,12 +47,17 @@ def main():
     if START_PAUSED:
         pause()
     if PRESET == '0':
-        Sys = System([[5, .5, 0,], [-5, -.5, 0]], velocity=[[-1.0, 0, 0,], [1.0, 0, 0]], mass=1., radius=1.)
+        Sys = ClassicSystem(
+            pos=[[5, .5, 0,], [-5, -.5, 0]], 
+            vel=[[-1.0, 0, 0,], [1.0, 0, 0]], 
+            mass=[1.], 
+            radius=[1.]
+        )
         Sim = Simulation(Sys, FORCE_F, t_step=get_arg_val('-d', 0.1))
         cam_pos = np.array([0, 0, 55])
         cam_look = np.array([0, 0, -1])
     elif PRESET == '1':
-        # Simple 3 tier star-planet-moon solar system,
+        # Simple 3 tier star-planet-moon solar Classicsystem,
         # with a 4th stationary object falling into the middle.
         Sim = simple_system()
     elif PRESET == '2':
@@ -69,7 +75,7 @@ def main():
         disc1.vel += get_arg_val('-kick', 0) * np.array([10, 0, -10])
 
         disc1.append(disc2)
-        disc1.initialize_info('force', 3, masked=True)
+        # disc1.initialize_info('force', 3, masked=True)
         # disc1.vel /= 1.5
         Sim = Simulation(disc1, FORCE_F, get_arg_val('-d', 0.005))
         Sim.track('force')
@@ -87,13 +93,13 @@ def main():
         }
         Sys = disc_sys(PARTICLE_COUNT, **kwargs)
         Sys.vel /= 1.2
-        Sys.initialize_info('force', 3, 0., True)
+        Sys.new_key('force', (3), 0.)
         Sim = Simulation(Sys, FORCE_F, get_arg_val('-d', 0.01))
         Sim.track('force')
     elif PRESET == '4':
         # Rings around a planet
         Sim = rings(get_arg_val('-d', 0.005))
-        Sim.sys.initialize_info('force', 3, 0., True)
+        # Sim.sys.new_key('force', 3, 0.)
         Sim.track('force')
         buffer_steps = 5
         Sim.buffer(100, verb=True, n=buffer_steps, append_buffer=True)
@@ -105,7 +111,7 @@ def main():
             particle_rad=(0.03, 0.01, 'normal'), kick=np.asarray([1, 0, -1])*50,
             axis=[1, 0., 1], axis2=[1, 0., 1])
         # Sys.vel /= 1.5
-        Sys.initialize_info('force', 3, masked=True)
+        # Sys.new_key('force', 3, 0.)
         Sim = Simulation(Sys, FORCE_F, t_step=get_arg_val('-d', 0.001))
         Sim.track('force')
     elif PRESET == '6':
@@ -148,9 +154,9 @@ def main():
             "Uranus"	: [0.5, 0.5, 1  ],
             "Neptune"	: [0.2, 0.2, 1  ],
         }
-        Sys = System(pos, vel, mass, rad)
-        # Sys.initialize_info('force', 3, 0., True)
-        Sys.initialize_info('colour', None, None, True)
+        Sys = ClassicSystem(pos, vel, mass, rad)
+        # Sys.new_key('force', 3, 0.)
+        Sys.new_key('colour', None, None)
         # Set colours:
         for i in id_map:
             if i in colours:
@@ -167,10 +173,10 @@ def main():
         pos = np.append(star, planet_pos, axis=0)
         mass = np.array([star_m, *([1e-2]*planet_count)])
         radius = np.array([star_rad, *([(max_dist - min_dist)/planet_count * 0.9/2]*planet_count)])
-        Sys = System(pos, 0., mass, radius)
+        Sys = ClassicSystem(pos=pos, vel=[[0., 0., 0.]], mass=mass, radius=radius)
         for i in range(1, planet_count+1):
             simulation.physics_functions.circularise(Sys, i, 0, FORCE_F, [0, 0, 1])
-        Sys.initialize_info('force', 3, 0., True)
+        Sys.new_key('force', 3, 0.)
         Sim = Simulation(Sys, FORCE_F, t_step=get_arg_val("-d", 0.001))
         Sim.track('force')
 
@@ -183,7 +189,7 @@ def main():
         simulation.sim_funcs.bounce_damping = get_arg_val('-bdamp')   
         Sim.kill_func = simulation.sim_funcs.kill_bounce
     if get_arg_val('-spin'):
-        Sim.sys.initialize_info('spin', 3, 0., True)
+        Sim.sys.new_key('spin', 3, 0.)
         # Sim.sys.vel *= 0.8
         if PRESET == '0':
             Sim.sys.set('spin', [0., 0., -1], 1)
@@ -200,6 +206,8 @@ def main():
 
     camera = Camera(Sim, pos=cam_pos + Sim.com, look=cam_look, screen_depth=1000)
     camera.set_X_Y_axes(new_Y = np.array([0., 1, 0]))
+    # camera.look_at(Sim.sys.com)
+    camera.look_at(0)
 
     # Call this to set the window up.
     canvas_init()
@@ -297,6 +305,7 @@ def main():
             # shading += 1
             # shading[:,0] = 1
         except Exception as e:
+            # print(e)
             pass
                 # shading = shading.tolist()
         # print(shading) 
@@ -334,7 +343,7 @@ def simple_system():
     S = [0, 1, 2, 3]
     r  = np.array([1, 0.2, 0.01, 1])[S]
     m = np.array([100, 10, 1, 100])[S]
-    Sys = System(np.array([p1, p2, p3, p4])[S], velocity=0.0, mass=m, radius=r)
+    Sys = ClassicSystem(pos=np.array([p1, p2, p3, p4])[S], vel=[[0., 0., 0.]], mass=m, radius=r)
     Sim = Simulation(Sys, FORCE_F, t_step=0.01, step_func=STEP_F, init_func=INIT_F)
 
     from physics_functions import circularise
@@ -364,7 +373,7 @@ def rings(t_step=0.0005):
 
     C = simulation.physics_functions.circularise
     pos = np.array([planet, *rand_p, moon])
-    Sys = System(pos, mass=mass, radius=radius, velocity=0.)
+    Sys = ClassicSystem(pos=pos, mass=mass, radius=radius, vel=[[0., 0., 0.]])
     Sim = Simulation(Sys, FORCE_F, t_step=t_step)
     C(Sys, -1, 0, Sim.func, [0, 0, 1])
     for i in range(1, PARTICLE_COUNT+1):
