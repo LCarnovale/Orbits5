@@ -227,14 +227,15 @@ class System:
         and is mainly available for use in methods in System.
         If raw is True, masking is ignored completely. 
         """
+        if raw:
+            return super().__getattribute__(attr)
+            
         # Use base classes __getattribute__ for masked attrs and
         # to get the normal output of the attribute:
         _super = super()
         def get_attr(attr):
             return _super.__getattribute__(attr)
         
-        if raw:
-            return super().__getattribute__(attr)
             
         if masked == None:
             masked = get_attr('_mask_enabled')
@@ -275,7 +276,8 @@ class System:
         # print(attr, values)
         try:
             if raw:
-                raise AttributeError
+                super().__setattr__(attr, values)
+                return
             if np.any(index == None):
                 index_ = slice(0, None)
             else:
@@ -355,7 +357,10 @@ class System:
 
         # Get the length
         try:
-            n_copy = np.shape(sys.get(self.names[0]))[0]
+            n_copy = len(sys.get(sys_keys[0]))
+            if n_copy == 0:
+                print(f"Given shape: {sys.get(sys_keys[0]).shape}")
+                raise SystemError("Got a zero length array in input")
         except Exception as e:
             raise SystemError("Unable to get shape of array to be added") from e
         
@@ -366,8 +371,10 @@ class System:
 
         # See if we need to preallocate more space
         if n_copy >= self._preallocated:
+            print("allocating more")
             # First try and roll back the buffer if possible
             if self._head_index != 0:
+                print("rolling")
                 old_head = self._head_index
                 old_N = self.N
                 self._head_index = 0
@@ -378,6 +385,7 @@ class System:
                 self._preallocated += old_head
 
             if n_copy >= self._preallocated:
+                print("doing allocation")
                 # At this point we know that the head index is 0,
                 # so that self.N is essentially the tail index.
                 # Now we preallocate rows:
@@ -389,12 +397,18 @@ class System:
                     self.set(n, new, raw=True)
                 # This does not account for the rows that are about to be added 
                 self._preallocated = n_copy + SYSTEM_APPEND_PREALLOC
+            else:
+                print("allocation avoided")
+        else:
+            print("no allocating")
+        print(self._preallocated)
                 
         # Now we have enough space to append, do the append.
         # We cannot assume anything about the head or tail
         # index in the code below.
         for n in self_keys:
             old = self.get(n, raw=True)
+            print(n, old.shape)
             # try:
             add = sys.get(n)
             add = np.asarray(add)
@@ -410,12 +424,14 @@ f"Unable to append system, got shape {got_shape}, wanted [\
                 )
             
             try:
-                np.copyto(old[self._tail_index : self._tail_index+n_copy], add, 
-                'safe')
+                np.copyto(old[self._tail_index : self._tail_index+n_copy], add)
             except Exception as e:
                 print("attribute:", n)
-                print("source:", add)
-                print("destination:", old)
+                print("source:", add.shape)
+                print("destination:",
+                      old[self._tail_index: self._tail_index+n_copy].shape)
+                print("tail_index:", self._tail_index)
+                print("n_copy:", n_copy)
                 raise SystemError("Unable to append systems.") from e
 
             self.set(n, old, raw=True)

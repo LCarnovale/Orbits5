@@ -27,6 +27,69 @@
   \maketitle
 
   \tableofcontents
+  \chapter{Requirements and Use Cases}
+  \section{Requirements}
+      An informal depiction of the requirements of the software.
+      \subsection{Functional Requirements}
+        The software must be able to:
+        \begin{itemize}
+          \item Represent a system of particles by an array of
+            N-dimensional positions, and optionally velocity, mass,
+            radius and any other desired quantity, each as an array of
+            scalars or arrays.
+          \item Perform a simulation by executing an arbitrary step
+            function.
+          \item Perform simulations on any system of particles.
+          \item Perform simulations with an arbitray force.
+            between particles, and arbitrary collision behaviour.
+          \item Model collisions between particles where the radii
+            of spherical particles intersect.
+          \item 
+            Create buffers that, for every frame, can replicate a system to
+            any desired degree of detail. 
+          \item 
+            Perform a simulation in real time (or as close as possible), or load frames
+            into memory as a buffer, which can be recalled later.
+          \item 
+            Render a system or frame into screen coordinates 
+            (x and y position, angle, radius etc.)
+          \item 
+            Draw a render of a system or frame onto a GUI interface, that supports mouse and keyboard
+            interaction.
+          \item 
+            User defined modules for physics functions, rendering, and drawing should be able to
+            made seperately to the main modules, that can be used instead of default modules.
+        \end{itemize}
+        The various separable modules should be as independent as possible. Apart from importing
+        functions to be used by upper-level modules, lower level modules should not rely
+        on any specific attributes of other modules. 
+
+      \subsection{Non-Functional Requirements}
+        The primary constraint and goal of the simulation is adequate speed and efficiency of calculations.
+        It is likely achieving a performance better than order $O(n^2)$ will be impossible for a true
+        N-body simulation. Hence, other types of simulation methods should be available aswell.
+
+        Accepted input (ie a given system) does not have to be expected to be valid for
+        every simulation, but the only modules that should have any strict requirements
+        are the Physics, Camera, and Drawing modules. These may require certain attribtues of
+        systems such as mass, radius, colour etc.
+        % \begin{itemize}
+        %   \item 
+        % \end{itemize}
+      \subsection{Analysis of Requirements}
+        The described constraints, aswell as decisions made prior to defining the requirements,
+        force the simulator to be spread across multiple modules and files. Modules regarding
+        core algorithms like performing steps, representing steps, and representing buffers,
+        should be encapsulated in functions and methods for use in other potentially
+        arbitrary user defined modules. 
+        
+        The user defined modules will need to allow
+        for any \textit{type} of simulation at the very least. In addition, if wanted
+        the user should be able to define their own modules to render and display simulations.
+        The rendering and drawing methods to be included with the simulation should be
+        comprehensive and adequately explore the range of any possible user-defined methods.
+      \subsection{User Stories}
+        
   \chapter{Simulator and Graphics API}
     \section{Relationship between simulator and API}
       The graphical display should not be a design specific to the
