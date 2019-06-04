@@ -93,10 +93,11 @@ def main():
     elif PRESET == '4':
         # Rings around a planet
         Sim = rings(get_arg_val('-d', 0.005))
+        cam_pos = [30, 0, 30]
         Sim.sys.initialize_info('force', 3, 0., True)
         Sim.track('force')
-        buffer_steps = 5
-        Sim.buffer(100, verb=True, n=buffer_steps, append_buffer=True)
+        # buffer_steps = 5
+        # Sim.buffer(1, verb=True, n=buffer_steps, append_buffer=True)
     elif PRESET == '5':
         from simulation.sim import disc_merger
         Sys = disc_merger(
@@ -104,7 +105,7 @@ def main():
             vel=('circ', FORCE_F), mass_props=(20, 5, 'normal'),
             particle_rad=(0.03, 0.01, 'normal'), kick=np.asarray([1, 0, -1])*50,
             axis=[1, 0., 1], axis2=[1, 0., 1])
-        # Sys.vel /= 1.5
+        Sys.vel /= 1.5
         Sys.initialize_info('force', 3, masked=True)
         Sim = Simulation(Sys, FORCE_F, t_step=get_arg_val('-d', 0.001))
         Sim.track('force')
@@ -173,6 +174,7 @@ def main():
         Sys.initialize_info('force', 3, 0., True)
         Sim = Simulation(Sys, FORCE_F, t_step=get_arg_val("-d", 0.001))
         Sim.track('force')
+        cam_pos = np.array([2 * max(planet_dist), 0, 10])
 
     else:
         print(f"Preset {PRESET} does not exist.")
