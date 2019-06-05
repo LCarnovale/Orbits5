@@ -37,7 +37,7 @@ def main():
     from sim import big_buffer
 
     simulation.physics_functions.GRAVITATIONAL_CONSTANT = get_arg_val('-G')
-    track_delta = False
+    track_delta = True
     simulation.sim.DEFAULT_BUFFER_ATTRS += ['com']
     buffer_steps = 1
     cam_pos = 0
@@ -195,6 +195,9 @@ def main():
             Sim.sys.set('spin', [0., 0., -1], 1)
             print(Sim.sys.spin)
             # Sim.spin[-1] = [0, -10.0, 0]
+
+    cam_pos, cam_look = find_good_cam_pos(Sim.sys)
+            
     Sim.sys.vel *= get_arg_val('-sm')
 
     Sim.buffer_attrs.append('force')
@@ -335,6 +338,25 @@ Time: {1000*step_t:.3f}ms [+ {1000*draw_t:.3f}ms]"""
 
     return Sim
         # print("f", end = '')
+
+# Finds a nice spot to put the camera
+# Returns a position and a nice look direction aswell
+def find_good_cam_pos(sys):
+    try:
+        com = sys.com
+    except:
+        com = np.mean(sys.pos, axis=0)
+    
+    rel_pos = sys.pos - com
+    # base = np.array([[1, 0, 0]])
+    # cross = np.cross(rel_pos, base, axis=1)
+    pos = 1 / np.var(rel_pos, axis=0) + com
+    look = com - pos
+
+    return pos, look
+
+    
+
 
 def simple_system():
     p1 = np.array([0, 0, 0], dtype=float)
