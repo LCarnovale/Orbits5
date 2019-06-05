@@ -57,7 +57,7 @@ def RK4_step(sys, f_func, t_step):
 def leapfrog_init(sys, f_func, t_step):
     # Go a half step backwards:
     F = f_func(sys)
-    F = F['force']
+    # F = F['force']
     A = F / sys.mass.reshape(-1, 1)
     sys.vel = sys.vel - 1/2 * t_step * A
 
@@ -72,7 +72,7 @@ def leapfrog_step(sys, f_func, t_step):
     Requires
     """
     out = f_func(sys)
-    a = out['force'] / sys.mass.reshape(-1, 1)
+    a = out / sys.mass.reshape(-1, 1)
     v_mid = sys.vel + a*t_step
     x_full = sys.pos + v_mid*t_step
     sys.vel = v_mid

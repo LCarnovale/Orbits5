@@ -50,7 +50,7 @@ def circularise(sys, A, B, f_func, axis):
     dB = np.linalg.norm(rB, 2)
 
 
-    F = f_func(new_sys)['force']
+    F = f_func(new_sys)
     F = np.linalg.norm(F, 2, axis=-1)
     fA = F[0] #/ rMass
     fB = F[1] #/ rMass
@@ -113,7 +113,8 @@ def GravityNewtonian(sys):
     np.divide(D, D_norm_const, where=D_norm_const>0, out=D_norm)
     F_VEC = F3 * D_norm # Now contains force vectors, F_VEC[i][j] = force between i and j
     F_NET = -np.sum(F_VEC, axis=1)
-    return {'force': F_NET}
+    # return {'force': F_NET}
+    return F_NET
 
 
 if __name__ == '__main__':

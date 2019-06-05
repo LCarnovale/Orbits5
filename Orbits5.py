@@ -44,7 +44,7 @@ def main():
     cam_look = 0
     from simulation.sim import disc_sys
 
-    if START_PAUSED:
+    if get_arg_val('-sp'):
         pause()
     if PRESET == '0':
         Sys = ClassicSystem(
@@ -78,7 +78,7 @@ def main():
         # disc1.initialize_info('force', 3, masked=True)
         # disc1.vel /= 1.5
         Sim = Simulation(disc1, FORCE_F, get_arg_val('-d', 0.005))
-        Sim.track('force')
+        # Sim.track('force')
                 
         # _, Sim = big_buffer(N=PARTICLE_COUNT, frames=500, radius_props=(15, 3, 'normal'),
         # particle_rad=(0.05, 0, 'normal'), mass_props=(10, 5, 'normal'), vel=(200, 1))
@@ -93,14 +93,14 @@ def main():
         }
         Sys = disc_sys(PARTICLE_COUNT, **kwargs)
         Sys.vel /= 1.2
-        Sys.new_key('force', (3), 0.)
+        # Sys.new_key('force', (3), 0.)
         Sim = Simulation(Sys, FORCE_F, get_arg_val('-d', 0.01))
-        Sim.track('force')
+        # Sim.track('force')
     elif PRESET == '4':
         # Rings around a planet
         Sim = rings(get_arg_val('-d', 0.005))
         # Sim.sys.new_key('force', 3, 0.)
-        Sim.track('force')
+        # Sim.track('force')
         buffer_steps = 5
         Sim.buffer(100, verb=True, n=buffer_steps, append_buffer=True)
     elif PRESET == '5':
@@ -113,7 +113,7 @@ def main():
         # Sys.vel /= 1.5
         # Sys.new_key('force', 3, 0.)
         Sim = Simulation(Sys, FORCE_F, t_step=get_arg_val('-d', 0.001))
-        Sim.track('force')
+        # Sim.track('force')
     elif PRESET == '6':
         solar_sys_data = loadSystem.loadFile('systems/SolSystem.txt')
         pos = []
@@ -176,9 +176,9 @@ def main():
         Sys = ClassicSystem(pos=pos, vel=[[0., 0., 0.]], mass=mass, radius=radius)
         for i in range(1, planet_count+1):
             simulation.physics_functions.circularise(Sys, i, 0, FORCE_F, [0, 0, 1])
-        Sys.new_key('force', 3, 0.)
+        # Sys.new_key('force', 3, 0.)
         Sim = Simulation(Sys, FORCE_F, t_step=get_arg_val("-d", 0.001))
-        Sim.track('force')
+        # Sim.track('force')
 
     else:
         print(f"Preset {PRESET} does not exist.")
@@ -197,6 +197,7 @@ def main():
             # Sim.spin[-1] = [0, -10.0, 0]
     Sim.sys.vel *= get_arg_val('-sm')
 
+    Sim.buffer_attrs.append('force')
 
     # if arg_supplied('-d'):
     #     Sim.t_step = get_arg_val('-d')
@@ -304,14 +305,14 @@ def main():
             shading = np.array([0.5+shading/2, 0.*shading, 0.5-shading/2]).transpose()
             # shading += 1
             # shading[:,0] = 1
-        except Exception as e:
-            # print(e)
+        except:
             pass
                 # shading = shading.tolist()
         # print(shading) 
         if not (get_arg_val('-db') and Sim.paused):
             draw_all(*render, fill=shading)
         else:
+            ############# THIS IS HARDCODED TURTLE :( ###################
             turtle.pencolor('white')
             turtle.write('BUFFERING (space to resume)')
         draw_t = time.time() - d_start

@@ -49,8 +49,10 @@ DEFAULT_KILL = sim_funcs.kill_conserve_mass_momentum
 
 class Simulation:
     def __init__(self, system, func, t_step=1, camera=None,
+                 buffer_attrs=None,
                  test_func=DEFAULT_TEST, init_func=DEFAULT_INIT,
-                 step_func=DEFAULT_STEP, kill_func=DEFAULT_KILL):
+                 step_func=DEFAULT_STEP, kill_func=DEFAULT_KILL,
+                 ):
         """
         A simulation of a system
         system: System object (Must have mass)
@@ -81,7 +83,16 @@ class Simulation:
         self._step_func = step_func
         self._pause = False
         self._buffer = None
-        self._tracked = []
+        
+        if buffer_attrs == None:
+            buffer_attrs = DEFAULT_BUFFER_ATTRS.copy()
+        self.buffer_attrs = buffer_attrs
+        # self._tracked = []
+
+        # last_frame holds a reference to the last frame returned from the 
+        # buffer during a step.
+        # if it is None, then the buffer is empty and the attached System 
+        # has the most up-to-date values.
         self._last_frame = None
 
     def __getattr__(self, attr):
@@ -139,10 +150,10 @@ or the buffer (sim.stored)""")
         if t_step == None:
             t_step = self.t_step
         if buffer_attrs == None:
-            buffer_attrs = DEFAULT_BUFFER_ATTRS + self._tracked
+            buffer_attrs = self.buffer_attrs
         elif "+" in buffer_attrs:
             buffer_attrs.remove('+')
-            buffer_attrs += DEFAULT_BUFFER_ATTRS + self._tracked
+            buffer_attrs += self.buffer_attrs
         if append_buffer and self._buffer != None and {*buffer_attrs} != set(self._buffer.keys):
             raise SimulationError(
                 msg="Keys in existing do not match requested buffer_attributes, \ncannot append to the existing buffer."
@@ -185,18 +196,18 @@ or the buffer (sim.stored)""")
             self._buffer = self._buffer + new_buffer
         return new_buffer
 
-    def track(self, *args):
-        """
-        Supply with attribute names and the system will have these
-        values updated in system when they are found in a step.
+    # def track(self, *args):
+    #     """
+    #     Supply with attribute names and the system will have these
+    #     values updated in system when they are found in a step.
 
-        The default force function returns just a value for 'force'.
-        Calling sim.track('force') will have sys.force set to this
-        value every step. User defined functions should return a dict
-        with labels and values to represent which values are to be tracked.
-        """
-        if args:
-            self._tracked = [*args]
+    #     The default force function returns just a value for 'force'.
+    #     Calling sim.track('force') will have sys.force set to this
+    #     value every step. User defined functions should return a dict
+    #     with labels and values to represent which values are to be tracked.
+    #     """
+    #     if args:
+    #         self._tracked = [*args]
 
 
 
@@ -248,22 +259,22 @@ or the buffer (sim.stored)""")
                     self._last_frame = None
                     self._buffer = None
 
-        out = None # Initialize for later incase n==0 for some reason
+        # out = None # Initialize for later incase n==0 for some reason
         for _ in range(n):
             out = self._step_func(self._sys, self._func, self._t_step)
             # Get the current mask so that after checking collisions
             # we can use it to set the tracked values, otherwise the
             # output will be a different shape to what the new mask will need.
-            out_mask = self._sys.active.copy()
+            # out_mask = self._sys.active.copy()
                     
             if collisions and mode == 'every':
                 self.step_collisions()
 
-        if self._tracked and out:
-            for x in self._tracked:
-                if x in out:
-                    val = out[x]
-                    self._sys.set(x, val, index=np.flatnonzero(out_mask), masked=False)
+        # if self._tracked and out:
+        #     for x in self._tracked:
+        #         if x in out:
+        #             val = out[x]
+        #             self._sys.set(x, val, index=np.flatnonzero(out_mask), masked=False)
 
         if collisions and mode == 'once':
             self.step_collisions()
@@ -293,9 +304,15 @@ or the buffer (sim.stored)""")
     """
     Properties
     """
+    # @property
+    # def tracked(self):
+    #     return self._tracked.copy()
     @property
-    def tracked(self):
-        return self._tracked.copy()
+    def frame(self):
+        if self._last_frame:
+            return self._last_frame
+        else:
+            return self._sys
 
     @property
     def paused(self):

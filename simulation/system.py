@@ -278,39 +278,73 @@ class System:
             if raw:
                 super().__setattr__(attr, values)
                 return
-            if np.any(index == None):
-                index_ = slice(0, None)
-            else:
-                index_ = index
 
+            named = attr in self.names
             if masked == None:
-                masked = self._mask_enabled
-            temp = self.get(attr, masked=False)
+                # Get default masking behaviour for this attribute
+                # Mask attributes that are part of the systems 'names'
+                masked = self._mask_enabled and named
+            elif masked == True:
+                # Requesting a mask to be used on destination
+                # This is only allowed if the attribute is a masked attribute
+                masked = named
+            
+            # Masked is now either True or False, and we can assume that
+            # if True, then it is possible to mask the destination array.
             if masked:
-                # masked_attrs = self._masked_attributes
-                is_masked_attr = attr in self.names
                 mask = self.get_mask
-                if index == None:
-                    if is_masked_attr:
-                        temp[mask] = values
-                    else:
-                        temp = values
-                else:
-                    if is_masked_attr:
-                        temp_ = temp[mask]
-                        temp_[index_] = values
-                        temp[mask] = temp_
-                    else:
-                        temp[index_] = values
+
+            # active_domain: the indexes in the allocated array that are being used
+            _head = self.get('_head_index', raw=True)
+            _tail = self.get('_tail_index', raw=True)
+            active_domain = np.arange(_head, _tail)
+
+            # if masked:
+            #     active_domain = active_domain[mask]
+
+            if np.any(index == None):
+                # Assume the input domain is the full active domain
+                index = active_domain
+                if masked:
+                    index = index[mask]
+            else:
+                # Assume we have a valid index given
+                try:
+                    index = active_domain[index]
+                except Exception as e:
+                    print(f"Attribute: {attr}")
+                    print(f"Index: {index}")
+                    print(f"Active domain: {active_domain}")
+                    raise SystemError(
+                        "Unable to index array in memory with given index"
+                    ) from e
+
+            # Now we have a valid slice or index to use on the destination
+
+                    
+            # Get the full array in memory 
+            try:
+                temp = self.get(attr, masked=False, raw=True)
+            except:
+                # If we can't get the attribute it probably doesn't exist
+                super().__setattr__(attr, values)
+                return 
+
+
+                
+
+            if masked:
+                # mask = active_domain[mask]
+                temp_ = temp[active_domain]
+                temp_[index] = values
+                temp[active_domain] = temp_
 
             else:
-                # if attr in self._info:
-                #     temp_ = self._info[attr]
-                #     temp_[index_] = values
-                #     self._info[attr] = temp_
-                # else:
-                temp[index_] = values
-        except AttributeError as e:
+                if named:
+                    temp[index] = values
+                else:
+                    temp = values
+        except (AttributeError, SystemError) as e:
             if np.all(index == None):
                 super().__setattr__(attr, values)
             else:
@@ -359,7 +393,7 @@ class System:
         try:
             n_copy = len(sys.get(sys_keys[0]))
             if n_copy == 0:
-                print(f"Given shape: {sys.get(sys_keys[0]).shape}")
+                # print(f"Given shape: {sys.get(sys_keys[0]).shape}")
                 raise SystemError("Got a zero length array in input")
         except Exception as e:
             raise SystemError("Unable to get shape of array to be added") from e
@@ -371,10 +405,10 @@ class System:
 
         # See if we need to preallocate more space
         if n_copy >= self._preallocated:
-            print("allocating more")
+            # print("allocating more")
             # First try and roll back the buffer if possible
             if self._head_index != 0:
-                print("rolling")
+                # print("rolling")
                 old_head = self._head_index
                 old_N = self.N
                 self._head_index = 0
@@ -385,7 +419,7 @@ class System:
                 self._preallocated += old_head
 
             if n_copy >= self._preallocated:
-                print("doing allocation")
+                # print("doing allocation")
                 # At this point we know that the head index is 0,
                 # so that self.N is essentially the tail index.
                 # Now we preallocate rows:
@@ -397,18 +431,18 @@ class System:
                     self.set(n, new, raw=True)
                 # This does not account for the rows that are about to be added 
                 self._preallocated = n_copy + SYSTEM_APPEND_PREALLOC
-            else:
-                print("allocation avoided")
-        else:
-            print("no allocating")
-        print(self._preallocated)
+            # else:
+                # print("allocation avoided")
+        # else:
+            # print("no allocating")
+        # print(self._preallocated)
                 
         # Now we have enough space to append, do the append.
         # We cannot assume anything about the head or tail
         # index in the code below.
         for n in self_keys:
             old = self.get(n, raw=True)
-            print(n, old.shape)
+            # print(n, old.shape)
             # try:
             add = sys.get(n)
             add = np.asarray(add)

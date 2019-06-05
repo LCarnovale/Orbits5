@@ -1,6 +1,6 @@
 # Calculates positions of particles on screen
 import numpy as np
-from simulation.buffer import Buffer
+# from simulation.buffer import Buffer
 import math
 
 class CameraError(Exception):
@@ -149,11 +149,12 @@ class Camera:
             # active = buffer.active'][frame]
             # radius = buffer.radius'][frame][active]
             # pos = buffer['pos[frame][active]
-            if type(source) == Buffer:
+            # if type(source) == Buffer:
+            try:
                 active = source.active[frame]
                 pos = source.pos[frame][active]
                 radius = source.radius[frame][active]
-            else:
+            except:
                 pos = source.pos[0]
                 radius = source.radius[0]
             # if (np.shape(pos)[-1] != 3 or
