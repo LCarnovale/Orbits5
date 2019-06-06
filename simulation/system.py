@@ -306,7 +306,7 @@ class System:
                 # Assume the input domain is the full active domain
                 index = active_domain
                 if masked:
-                    index = index[mask]
+                    index = index[:self.N]
             else:
                 # Assume we have a valid index given
                 try:
@@ -336,7 +336,9 @@ class System:
             if masked:
                 # mask = active_domain[mask]
                 temp_ = temp[active_domain]
-                temp_[index] = values
+                temp__ = temp_[mask]
+                temp__[index] = values
+                temp_[mask] = temp__
                 temp[active_domain] = temp_
 
             else:
@@ -555,14 +557,21 @@ f"Unable to append system, got shape {got_shape}, wanted [\
         # idx_array = collisions[mask]
         A = collisions[np.invert(mask)]
         B = collisions[mask]
-        kill_list = np.full(len(A), -1)
+        kill_list = np.full(self.N, -1)
         if DELETE_FORCE_LOOP:
             for i in range(len(A)):
                 a = A[i:i+1]
                 b = B[i:i+1]
+                # if np.any(kill_list[[a[0], b[0]]] == 1):
+                #     continue
                 k_res = kill_func(self, a, b)
                 if k_res is not None:
-                    kill_list[i] = k_res
+                    kill_list[a] = k_res
+                    # b is now 'dead', it can no longer
+                    # kill particles, and it can not longer
+                    # be killed   
+                    # A[A == b] = -1
+                    # B[B == b] = -1
         else:
             kill_list = kill_func(self, A, B)
         kill_list = np.array(list(set(kill_list)))
@@ -697,13 +706,8 @@ class ClassicSystem(System):
         calling kill_particle(check_collision()[:0 or 1]) will
         'kill' one of the colliding particles
         """
-        try:
-            self.pos
-            self.radius
-        except AttributeError:
-            raise SystemError("collisions requires pos and radius values")
         POS_ALL = np.tile(self.pos, (self.N, 1, 1))
-        POS_S = np.tile(self.pos, (1, 1, self.N)).reshape(POS_ALL.shape)
+        POS_S   = np.tile(self.pos, (1, 1, self.N)).reshape(POS_ALL.shape)
         D = POS_S - POS_ALL  # r
         D = np.linalg.norm(D, 2, axis=-1)
         # D = np.sqrt(np.sum(D**2, axis=-1))

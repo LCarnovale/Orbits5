@@ -156,7 +156,7 @@ def main():
         }
         Sys = ClassicSystem(pos, vel, mass, rad)
         # Sys.new_key('force', 3, 0.)
-        Sys.new_key('colour', None, None)
+        Sys.new_key('colour', 3, 0.)
         # Set colours:
         for i in id_map:
             if i in colours:
@@ -207,8 +207,9 @@ def main():
     Sim.init_sim()
     if not np.any(cam_look):
         cam_look = np.array([-1., 0, -1])
-
-    camera = Camera(Sim, pos=cam_pos + Sim.com, look=cam_look, screen_depth=1000)
+    print("Camera position:", cam_pos)
+    print("Looking towards:", cam_look)
+    camera = Camera(Sim, pos=cam_pos, look=cam_look, screen_depth=1000)
     camera.set_X_Y_axes(new_Y = np.array([0., 1, 0]))
     # camera.look_at(Sim.sys.com)
     camera.look_at(0)
@@ -350,7 +351,11 @@ def find_good_cam_pos(sys):
     rel_pos = sys.pos - com
     # base = np.array([[1, 0, 0]])
     # cross = np.cross(rel_pos, base, axis=1)
-    pos = 1 / np.var(rel_pos, axis=0) + com
+    var = np.std(rel_pos, axis=0)
+    var[var == 0] = .001
+    pos = 1 / var
+    pos = pos * math.sqrt(np.dot(var, var) / np.dot(pos, pos))
+    pos += com
     look = com - pos
 
     return pos, look

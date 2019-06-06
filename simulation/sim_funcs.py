@@ -133,6 +133,7 @@ def kill_conserve_mass_momentum(sys, A, B):
 Warning: simultaneous collisions involving a single particle may be occuring.
 These collisions may result in unexpected behaviour.
 Turn on the DELETE_FORCE_LOOP option to avoid this. """)
+        sys.set('mass', m_new, index=A)
         _warning_flag = True
     return B
 

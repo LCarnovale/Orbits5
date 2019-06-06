@@ -77,6 +77,11 @@ def test_sys_appending():
     
     assert sys_b.N == 2 + 2
 
+    prev_n = sys_a.N
+    sys_a += sys_a
+    assert sys_a.N == 2 * prev_n
+
+
 
 def test_sys_modifying():
     global sys_a
@@ -85,7 +90,7 @@ def test_sys_modifying():
 
     assert sys_a.N == 4
     original_pos = sys_a.pos.copy()
-    sys_a.set('pos', [-1, -1], 0)
+    sys_a.set('pos', [-1, -1], [0])
     assert np.all(sys_a.pos[0] == [-1, -1])
     assert np.all(sys_a.pos[1] == original_pos[1])
     assert sys_a.N == 4
@@ -95,4 +100,12 @@ def test_sys_modifying():
     assert np.all(d.pos[1] == e.pos[0])
     assert d.N == 2
     assert e.N == 1
+    m = sys_a.get('mass')
+    assert np.all(sys_a.mass == m)
+    m *= 2
+    assert np.all(sys_a.mass * 2 == m)
+    sys_a.set('mass', m)
+    assert np.all(sys_a.mass == m)
+    sys_a.set('mass', [2], index=[0])
+    assert sys_a.mass[0] == np.array([2])
     pass
