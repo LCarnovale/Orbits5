@@ -17,11 +17,11 @@ def main():
     # s = big_buffer()
     # s = solar_system_sample()
     m = disc_merger()
-    m.new_key('force', 3)
+    # m.new_key('force', 3)
     s = Simulation(m, gfunc, 0.01)
-    s.track("force")
+    # s.track("force")
     s.step(10)
-    s.buffer(100)
+    s.buffer(1)
 
     return locals()
 
