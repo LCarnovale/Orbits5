@@ -122,7 +122,7 @@ or the buffer (sim.stored)""")
 
 
     def buffer(self, buffer_n, t_step=None, buffer_attrs=None, append_buffer=True,
-        verb=False, first_frame=True, **step_kwargs):
+        verb=False, first_frame=True, store_last=False, **step_kwargs):
         """
         sim.buffer(buffer_n, t_step=sim.t_step, buffer_attrs=[],
             **step_kwargs ( used by Sim.step() ) )
@@ -139,8 +139,11 @@ or the buffer (sim.stored)""")
 
         Prints progress if verb == True
 
-        if first_frame is true, the current state of the system is recorded as
-        the first frame, otherwise not.
+        first_frame : if true, the current state of the system is recorded as
+            the first frame, otherwise not.
+
+        store_last : If True, then only the final step of 
+            'buffer_n' steps is recorded 
 
         The output dict has keys equal to the values in buffer_attrs,
         and each value is an array of shape (n, <the shape of sys.attr>),
@@ -170,7 +173,12 @@ or the buffer (sim.stored)""")
                 dtype_ = attr_val.dtype
             except:
                 dtype_ = type(attr_val)
-            output[attr] = np.zeros((buffer_n,) + np.shape(attr_val), dtype=dtype_)
+
+            buffer_len = buffer_n if not store_last else 1
+            if first_frame:
+                buffer_len += 1
+
+            output[attr] = np.zeros((buffer_len,) + np.shape(attr_val), dtype=dtype_)
 
         def fill_vals(i):
             for attr in buffer_attrs:
@@ -184,13 +192,17 @@ or the buffer (sim.stored)""")
             steps_len = len(str(buffer_n))
         if first_frame:
             fill_vals(0)
-        for i in range(1*first_frame, buffer_n):
-            if verb:
-                print(f'Buffering frame {i:0>{steps_len}} / {buffer_n}', end = '\r'); flush()
-            self.step(t_step, pull_buffer=False, ignore_pause=True, **step_kwargs)
-            fill_vals(i)
-        if verb: print()
+        if not store_last:
+            for i in range(1*first_frame, buffer_n):
+                if verb:
+                    print(f'Buffering frame {i:0>{steps_len}} / {buffer_n}', end = '\r'); flush()
+                self.step(t_step, pull_buffer=False, ignore_pause=True, **step_kwargs)
+                fill_vals(i)
+        else:
+            self.step(t_step, n=buffer_n, pull_buffer=False, ignore_pause=True, **step_kwargs)
+            fill_vals(0)
 
+        if verb: print()
         new_buffer = bu.Buffer(output)
         if append_buffer:
             self._buffer = self._buffer + new_buffer
@@ -240,19 +252,27 @@ or the buffer (sim.stored)""")
             self._camera.step(t_step)
 
 
+        if n == 0:
+            return self._last_frame
         if t_step is None:
             t_step = self._t_step
 
 
         if self._pause and not ignore_pause:
             if buffer_in_pause:
-                self.buffer(n, append_buffer=True, first_frame=False)
+                self.buffer(
+                    n, 
+                    append_buffer=True, 
+                    first_frame=False, 
+                    collisions=collisions,
+                    store_last=True
+                )
             return
 
         if pull_buffer:
             if self._buffer != None:
                 if len(self._buffer) > 0:
-                    frame = self._buffer.pull()
+                    frame = self._buffer.pull(n-1)
                     self._last_frame = frame
                     return frame
                 else:
@@ -261,7 +281,7 @@ or the buffer (sim.stored)""")
 
         # out = None # Initialize for later incase n==0 for some reason
         for _ in range(n):
-            out = self._step_func(self._sys, self._func, self._t_step)
+            self._step_func(self._sys, self._func, self._t_step)
             # Get the current mask so that after checking collisions
             # we can use it to set the tracked values, otherwise the
             # output will be a different shape to what the new mask will need.
@@ -470,12 +490,18 @@ def big_buffer(N=100, frames=100, show=False, **disc_kwargs):
         plt.show()
     return d, Sim
 
-def disc_merger(N=100, disc_radii=8, kick=[0, 0, 0], axis2=[0, 0, 1], **disc_kwargs):
+def disc_merger(
+        N=100, 
+        disc_radii=8, 
+        kick=[0, 0, 0], 
+        axis2=[0, 0, 1], 
+        approach_speed=10,
+        **disc_kwargs):
     kwargs = {
         'mass_props':(10, 5, 'normal'),
         'radius_props':(disc_radii, 0, 'uniform'),
         'particle_rad':(0.05, 0, 'normal'),
-        'vel':(100, 1)
+        'vel':(100, 1),
     }
     kwargs.update(disc_kwargs)
     disc1 = disc_sys(N, **kwargs)
@@ -485,6 +511,7 @@ def disc_merger(N=100, disc_radii=8, kick=[0, 0, 0], axis2=[0, 0, 1], **disc_kwa
     disc1.pos += shift
     disc1.vel += np.asarray(kick)
     disc2.pos -= shift
+    disc2.vel += shift * approach_speed
     disc1.append(disc2)
     return disc1
 

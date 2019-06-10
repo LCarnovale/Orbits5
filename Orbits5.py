@@ -39,7 +39,7 @@ def main():
     simulation.physics_functions.GRAVITATIONAL_CONSTANT = get_arg_val('-G')
     track_delta = True
     simulation.sim.DEFAULT_BUFFER_ATTRS += ['com']
-    buffer_steps = 1
+    buffer_steps = get_arg_val('-bs', 1)
     cam_pos = 0
     cam_look = 0
     from simulation.sim import disc_sys
@@ -64,7 +64,7 @@ def main():
         kwargs = {
             'mass_props':(10, 0, 'normal'), 
             'radius_props':(get_arg_val("-dr", 10), 0, 'uniform'), 
-            'particle_rad':(0.05, 0, 'normal'),
+            'particle_rad':(0.1, 0, 'normal'),
             'vel':('circ', FORCE_F), 
         }
         disc1 = disc_sys(PARTICLE_COUNT, **kwargs)
@@ -92,6 +92,7 @@ def main():
             'vel':('circ', FORCE_F), 
         }
         Sys = disc_sys(PARTICLE_COUNT, **kwargs)
+        Sys.set('vel', 2*(np.random.random((Sys.N, 3))/2 - 1)*600)
         Sys.vel /= 1.2
         # Sys.new_key('force', (3), 0.)
         Sim = Simulation(Sys, FORCE_F, get_arg_val('-d', 0.01))
@@ -101,14 +102,20 @@ def main():
         Sim = rings(get_arg_val('-d', 0.005))
         # Sim.sys.new_key('force', 3, 0.)
         # Sim.track('force')
-        buffer_steps = 5
-        Sim.buffer(100, verb=True, n=buffer_steps, append_buffer=True)
+        buffer_steps = get_arg_val('-bs')
+        # Sim.buffer(100, verb=True, n=buffer_steps, append_buffer=True)
+    # elif PRESET == '4.1':
+
     elif PRESET == '5':
         from simulation.sim import disc_merger
         Sys = disc_merger(
-            PARTICLE_COUNT, thickness=0.5, disc_radii=5,
-            vel=('circ', FORCE_F), mass_props=(20, 5, 'normal'),
-            particle_rad=(0.03, 0.01, 'normal'), kick=np.asarray([1, 0, -1])*50,
+            PARTICLE_COUNT, 
+            thickness=0.5, 
+            disc_radii=10,
+            vel=('circ', FORCE_F), 
+            mass_props=(20, 5, 'normal'),
+            particle_rad=(0.05, 0, 'normal'), 
+            kick=np.asarray([1, 0, -1])*get_arg_val('-kick', 50),
             axis=[1, 0., 1], axis2=[1, 0., 1])
         # Sys.vel /= 1.5
         # Sys.new_key('force', 3, 0.)
@@ -196,7 +203,10 @@ def main():
             print(Sim.sys.spin)
             # Sim.spin[-1] = [0, -10.0, 0]
 
-    cam_pos, cam_look = find_good_cam_pos(Sim.sys)
+    cam_pos, cam_look = find_good_cam_pos(
+            Sim.sys,
+            extra_distance=get_arg_val('-sd')/10
+        )
             
     Sim.sys.vel *= get_arg_val('-sm')
 
@@ -212,7 +222,7 @@ def main():
     camera = Camera(Sim, pos=cam_pos, look=cam_look, screen_depth=1000)
     camera.set_X_Y_axes(new_Y = np.array([0., 1, 0]))
     # camera.look_at(Sim.sys.com)
-    camera.look_at(0)
+    # camera.look_at(0)
 
     # Call this to set the window up.
     canvas_init()
@@ -239,7 +249,15 @@ def main():
         start = time.time()
         com_pre = Sim.com
 
-        F = Sim.step(n=(buffer_steps if Sim.paused else 1), buffer_in_pause=get_arg_val('-bp'))
+        bp = get_arg_val('-bp')
+        if bp:
+            if Sim.stored and  Sim.stored.size >= get_arg_val('-mb'):
+                bp = False 
+        F = Sim.step(
+            n=(buffer_steps if Sim.stored else 1), 
+            buffer_in_pause=bp,
+            collisions=get_arg_val('-noc')
+        )
 
         com_delta = Sim.com - com_pre
 
@@ -271,6 +289,7 @@ def main():
         frame_clear()
         camera.step(1.)
         try:
+
             F_mag = (np.linalg.norm(Sim.force, 2, axis=-1))
             # F_mag /= Sim.mass # otherwise big bodies get too biased
             F_mag = np.sqrt(F_mag)
@@ -280,8 +299,8 @@ def main():
             # top_shader = F_max*.5 + top_shader*.5
             if F_max > top_shader:
                 top_shader = F_max * 1.2
-            if F_max < top_shader / 2:
-                top_shader = 2 * F_max
+            # if F_max < top_shader / 2:
+            #     top_shader = 2 * F_max
         except:
             try:
                 Sim.colour
@@ -301,16 +320,17 @@ def main():
                     # [F_mag / top_shader, 1 - F_mag/top_shader, 0.*F_mag]
                     [F_mag, 1 - F_mag, 0.*F_mag]
                 ).transpose()
-        try:
-            shading = Sim.spin * Sim.mass.reshape(-1, 1)
-            # if np.any(shading != 0): shading /= np.max(np.abs(shading))
-            shading = shading[:,2]
-            shading = np.tanh(shading)
-            shading = np.array([0.5+shading/2, 0.*shading, 0.5-shading/2]).transpose()
-            # shading += 1
-            # shading[:,0] = 1
-        except:
-            pass
+        # try:
+        #     shading = Sim.spin * Sim.mass.reshape(-1, 1)
+        #     # if np.any(shading != 0): shading /= np.max(np.abs(shading))
+        #     shading = shading[:,2]
+        #     shading = np.tanh(shading)
+        #     shading = np.array([0.5+shading/2, 0.*shading, 0.5-shading/2]).transpose()
+        #     # shading += 1
+        #     # shading[:,0] = 1
+        # except Exception as e:
+        #     raise e
+        #     pass
                 # shading = shading.tolist()
         # print(shading) 
         if not (get_arg_val('-db') and Sim.paused):
@@ -319,6 +339,7 @@ def main():
             ############# THIS IS HARDCODED TURTLE :( ###################
             turtle.pencolor('white')
             turtle.write('BUFFERING (space to resume)')
+            #############################################################
         draw_t = time.time() - d_start
         if Sim.stored:
             ss = f'[{Sim.sys.N} active]'
@@ -342,7 +363,7 @@ Time: {1000*step_t:.3f}ms [+ {1000*draw_t:.3f}ms]"""
 
 # Finds a nice spot to put the camera
 # Returns a position and a nice look direction aswell
-def find_good_cam_pos(sys):
+def find_good_cam_pos(sys, extra_distance=1):
     try:
         com = sys.com
     except:
@@ -354,7 +375,9 @@ def find_good_cam_pos(sys):
     var = np.std(rel_pos, axis=0)
     var[var == 0] = .001
     pos = 1 / var
-    pos = pos * math.sqrt(np.dot(var, var) / np.dot(pos, pos))
+    root_mean_sqr = np.sqrt(np.mean(rel_pos**2, axis=0))
+    pos = pos / math.sqrt(np.dot(pos, pos))
+    pos *= (1 * math.sqrt(np.dot(root_mean_sqr, root_mean_sqr)) + extra_distance)
     pos += com
     look = com - pos
 
@@ -385,7 +408,7 @@ def rings(t_step=0.0005):
     # from physics_functions import GravityNewtonian as FORCE_F
     simulation.physics_functions.GRAVITATIONAL_CONSTANT = get_arg_val('-G')    
     planet = [0., 0., 0.]; p_r = 10.
-    moon   = [30., 0., 0.]; m_r = 0.5
+    moon   = [150., 0., 0.]; m_r = .5
     rand_angle = np.random.random(PARTICLE_COUNT) * np.pi * 2
     rand_dist  = np.random.random(PARTICLE_COUNT) * 30 + 15
     rand_p     = np.array([np.cos(rand_angle), 
@@ -394,7 +417,7 @@ def rings(t_step=0.0005):
     rand_p    *= rand_dist.reshape(-1, 1)
     mass = np.full(PARTICLE_COUNT+2, 1e-5)
     mass[0] = 1000
-    mass[-1] = 1
+    mass[-1] = 300
     radius = np.full(PARTICLE_COUNT+2, 0.05)
     radius[0] = p_r
     radius[-1] = m_r
@@ -404,10 +427,10 @@ def rings(t_step=0.0005):
     Sys = ClassicSystem(pos=pos, mass=mass, radius=radius, vel=[[0., 0., 0.]])
     Sim = Simulation(Sys, FORCE_F, t_step=t_step)
     C(Sys, -1, 0, Sim.func, [0, 0, 1])
-    for i in range(1, PARTICLE_COUNT+1):
+    for i in range(1, PARTICLE_COUNT):
         C(Sys, i, 0, Sim.func, [0, 0, 1])
-    # Sys.set_vel(0, np.array([0., 0., 0.]))
-    Sys.pos -= Sys.vel[0].reshape(1, -1)
+    Sys.set('vel', 1e-2*Sys.vel[-2], index=-1)
+    # Sys.pos -= Sys.vel[0].reshape(1, -1)
     # print(Sys.vel)
 
     return Sim

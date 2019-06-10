@@ -564,14 +564,16 @@ f"Unable to append system, got shape {got_shape}, wanted [\
                 b = B[i:i+1]
                 # if np.any(kill_list[[a[0], b[0]]] == 1):
                 #     continue
+                if a == -1 or b == -1:
+                    continue
                 k_res = kill_func(self, a, b)
                 if k_res is not None:
-                    kill_list[a] = k_res
+                    kill_list[k_res] = k_res
                     # b is now 'dead', it can no longer
                     # kill particles, and it can not longer
                     # be killed   
-                    # A[A == b] = -1
-                    # B[B == b] = -1
+                    A[A == b] = a
+                    B[B == b] = -1
         else:
             kill_list = kill_func(self, A, B)
         kill_list = np.array(list(set(kill_list)))

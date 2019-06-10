@@ -121,7 +121,7 @@ Unable to append {buffer[k].shape} to {self._dict[k].shape}""") from e
                 return out
             else:
                 # 's' does not exist
-                raise AttributeError
+                raise BufferError(f"Unable to get item {s} from buffer.", self)
         else:
             # s is now an nd-array or int
             out = {}
@@ -155,14 +155,20 @@ Unable to append {buffer[k].shape} to {self._dict[k].shape}""") from e
         l = self._tail_index - self._head_index
         return l
 
-    def pull(self):
+    def pull(self, n=0):
         """
         Return the first frame and delete it.
         """
-        if len(self) == 0:
+        len_self = len(self)
+        if len_self == 0:
             return None
-        f = self[0].copy()
-        self._head_index += 1
+        elif len_self <= n:
+            n = len_self - 1
+
+        f = self[n].copy()
+        if n < 0:
+            n += len(self)
+        self._head_index += 1 + n
         # self._dict = self[1:]._dict
         # for k in self._dict:
         #     selfEnd of the used/initialized data, while _head_index == 0, 
