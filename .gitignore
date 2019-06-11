@@ -10,3 +10,4 @@ __pycache__/sim.cpython-36.pyc
 *.pyc
 .pytest_cache/v/cache/nodeids
 .pytest_cache/v/cache/stepwise
+docs/DocumentationOrbits5.synctex.gz
