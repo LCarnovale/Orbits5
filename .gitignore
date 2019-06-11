@@ -6,3 +6,7 @@ Orbits4T.py
 *.cpython-37.pyc
 *.pyc
 __pycache__/*.cpython-37.pyc
+__pycache__/sim.cpython-36.pyc
+*.pyc
+.pytest_cache/v/cache/nodeids
+.pytest_cache/v/cache/stepwise

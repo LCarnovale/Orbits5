@@ -6,6 +6,8 @@ _controller_flags = {
     'sim_running': True,
     'rotate': [0, 0, 0],
     'pan': [0, 0, 0, 1],
+    'buffering': False,
+    'drawing': True,
     'shiftL': False
 }
 
@@ -65,7 +67,7 @@ def get_pause(ignore=False):
 def get_running(ignore=False):
     return get_flag_if_changed('sim_running', ignore)
 
-
+# def get_
 
 
 def panRight():

@@ -1,4 +1,5 @@
 import numpy as np
+from args_parser import get_arg_val
 
 def RK4_init(sys, f_func, t_step):
     """
@@ -57,9 +58,10 @@ def RK4_step(sys, f_func, t_step):
 def leapfrog_init(sys, f_func, t_step):
     # Go a half step backwards:
     F = f_func(sys)
-    F = F['force']
+    # F = F['force']
     A = F / sys.mass.reshape(-1, 1)
     sys.vel = sys.vel - 1/2 * t_step * A
+    sys.force = f_func(sys)
 
     return sys
 
@@ -71,12 +73,16 @@ def leapfrog_step(sys, f_func, t_step):
     x_{i + 1} = x_{i} + v_{i+1/2} * dt
     Requires
     """
-    out = f_func(sys)
-    a = out['force'] / sys.mass.reshape(-1, 1)
+    out = sys.force
+    a = out / sys.mass.reshape(-1, 1)
     v_mid = sys.vel + a*t_step
     x_full = sys.pos + v_mid*t_step
     sys.vel = v_mid
     sys.pos = x_full
+    now = f_func(sys)
+    sys.force = now
+    sys.vel *= get_arg_val('-vdamp')
+    sys.vel 
     return out
 
 def test_mass(sys, A, B):
@@ -133,6 +139,7 @@ def kill_conserve_mass_momentum(sys, A, B):
 Warning: simultaneous collisions involving a single particle may be occuring.
 These collisions may result in unexpected behaviour.
 Turn on the DELETE_FORCE_LOOP option to avoid this. """)
+        sys.set('mass', m_new, index=A)
         _warning_flag = True
     return B
 

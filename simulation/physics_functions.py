@@ -4,7 +4,7 @@
 # particles in sys.
 
 import numpy as np
-from sim import System
+from system import ClassicSystem as CSystem
 
 class FunctionError(Exception):
     def __init__(self, msg):
@@ -50,7 +50,7 @@ def circularise(sys, A, B, f_func, axis):
     dB = np.linalg.norm(rB, 2)
 
 
-    F = f_func(new_sys)['force']
+    F = f_func(new_sys)
     F = np.linalg.norm(F, 2, axis=-1)
     fA = F[0] #/ rMass
     fB = F[1] #/ rMass
@@ -98,7 +98,7 @@ def GravityNewtonian(sys):
     np.divide(G * M_PROD, D2, where=D2>0, out=F_OUT)
     if zero_if_clipping:
         if np.any(sys.radius):
-            # Straight from System.get_collisions():
+            # Straight from CSystem.get_collisions():
             D1 = D2 ** (0.5)
             # Get combined radii:
             RM = sys.radius.reshape(1, -1)
@@ -113,14 +113,15 @@ def GravityNewtonian(sys):
     np.divide(D, D_norm_const, where=D_norm_const>0, out=D_norm)
     F_VEC = F3 * D_norm # Now contains force vectors, F_VEC[i][j] = force between i and j
     F_NET = -np.sum(F_VEC, axis=1)
-    return {'force': F_NET}
+    # return {'force': F_NET}
+    return F_NET
 
 
 if __name__ == '__main__':
     # main()
     a = np.array([[1,1], [5,1], [3, 4]])
     m = np.array([3, 6, 1])
-    sys = System(a, np.zeros(a.shape), mass=m)
+    sys = CSystem(a, np.zeros(a.shape), mass=m)
     print(f"Starting with positions: \n{a}\nMasses: \n{m}")
     print(f"System: {sys}")
     print("Calculating force,")

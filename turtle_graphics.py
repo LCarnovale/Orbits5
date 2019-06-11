@@ -80,10 +80,12 @@ def draw_all(x, y, z, major, minor, angle, fill = [0,0,0],
     global FLARE_POLY_POINTS
 
     mask = (z > 0)
-    mask = np.logical_and(mask, np.abs(x) < screen_width()/2)
-    mask = np.logical_and(mask, np.abs(y) < screen_height()/2)
+    mask = np.logical_and(mask, np.isnan(major)==False)
+    mask = np.logical_and(mask, np.abs(x) < screen_width()/2 + major)
+    mask = np.logical_and(mask, np.abs(y) < screen_height()/2 + major)
     sort_mask = np.argsort(z)[::-1]
     mask = mask[sort_mask]
+    sort_and_mask = sort_mask[mask]
     
     if box:
         if mask[box]:
@@ -94,14 +96,14 @@ def draw_all(x, y, z, major, minor, angle, fill = [0,0,0],
         else:
             box = None
 
-    x = x[sort_mask][mask]
-    y = y[sort_mask][mask]
-    major = major[sort_mask][mask]
-    minor = minor[sort_mask][mask]
-    angle = angle[sort_mask][mask]
+    x = x[sort_and_mask]
+    y = y[sort_and_mask]
+    major = major[sort_and_mask]
+    minor = minor[sort_and_mask]
+    angle = angle[sort_and_mask]
     # mask_map = np.flatnonzero(mask) # Indexes of True's in mask
     if _is_array(fill):
-        fill = fill[sort_mask][mask]
+        fill = fill[sort_and_mask]
     
     if SMART_DRAW:
         perimApprox = 2*np.pi*np.sqrt((major**2 + minor**2) / 2)
