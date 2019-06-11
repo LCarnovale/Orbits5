@@ -29,35 +29,33 @@ def circularise(sys, A, B, f_func, axis):
     """
     if np.any(sys.mass==None):
         raise FunctionError("Particles in 'sys' must have mass")
+
     if not (np.isscalar(A) and np.isscalar(B)):
         raise FunctionError("A and B must be scalars")
+
     new_sys = sys[[A, B]] # Isolate the two particles
-    # if np.any(new_sys.mass) and np.any(new_sys.vel):
-    # print("=== new sys ===")
-    # print(new_sys.mass)
-    # print(new_sys.pos)
-    # print('=== ===')
-    pA, pB = new_sys.pos[0], new_sys.pos[1]
-    BA_vec = pA - pB
-    # dist = np.linalg.norm(BA_vec, 2)
-    mA = new_sys.mass[0]; mB = new_sys.mass[1]
-    vA = new_sys.vel[0];  vB = new_sys.vel[1]
-    rMass = mA*mB / (mA + mB)
+
+    pA, pB = new_sys.pos[0],  new_sys.pos[1]
+    mA, mB = new_sys.mass[0], new_sys.mass[1]
+    vA, vB = new_sys.vel[0],  new_sys.vel[1]
     CoM = (mA*pA + mB*pB)/(mA + mB)
     rA = pA - CoM
     rB = pB - CoM
-    dA = np.linalg.norm(rA, 2)
-    dB = np.linalg.norm(rB, 2)
 
+    # rMass = mA*mB / (mA + mB)
+    dA = np.linalg.norm(rA, 2) # distance to A from CoM
+    dB = np.linalg.norm(rB, 2)
 
     F = f_func(new_sys)
     F = np.linalg.norm(F, 2, axis=-1)
     fA = F[0] #/ rMass
     fB = F[1] #/ rMass
+    # These forces should be equal
 
-    vA_new = np.sqrt(fA * dA  / (rMass))
-    vB_new = np.sqrt(fB * dB  / (rMass))
+    vA_new = np.sqrt(fA * dA  / (mA))
+    vB_new = np.sqrt(fB * dB  / (mB))
 
+    BA_vec = pA - pB
     direction  = np.cross(axis, BA_vec)
     direction /= np.linalg.norm(direction, 2)
     vA_new =  vA_new * direction
@@ -69,7 +67,7 @@ def circularise(sys, A, B, f_func, axis):
     sys.set('vel', [vA_new, vB_new], index=[A, B])
 
 
-zero_if_clipping = True
+zero_if_clipping = False
 def GravityNewtonian(sys):
     """
     F = -G m1 m2 / r^2

@@ -61,7 +61,7 @@ def leapfrog_init(sys, f_func, t_step):
     # F = F['force']
     A = F / sys.mass.reshape(-1, 1)
     sys.vel = sys.vel - 1/2 * t_step * A
-    sys.force = f_func(sys)
+    sys.force = F
 
     return sys
 
@@ -91,11 +91,18 @@ def test_mass(sys, A, B):
     Returns 1 if B is to be killed,
     else -1 if A is.
     """
-    massA = sys.mass[A]
-    massB = sys.mass[B]
+    massA = sys.mass[A].reshape(-1)
+    massB = sys.mass[B].reshape(-1)
     r = np.zeros(np.shape(A), dtype=int)
-    r[massA >  massB] = 1
-    r[massA <= massB] = -1
+    try:
+        r[massA >  massB] = 1
+        r[massA <= massB] = -1
+    except Exception as e:
+        print()
+        print(r)
+        print(massA)
+        print(massB)
+        raise e
     return r
 
 _warning_flag = False

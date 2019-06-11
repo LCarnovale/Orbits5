@@ -203,13 +203,13 @@ Arguments:
 			if (arg[0] == "-" and arg[1].isalpha()):
 				print("Unrecognised argument: '%s'" % (arg))
 
-else:
-	print("You haven't used any arguments.")
-	print("Either you're being lazy or don't know how to use them.")
-	print("For help, run '%s -?'" % (sys.argv[0]))
-	time.sleep(1)
-	print("Now onto a very lame default simulation...")
-	time.sleep(1)
+# else:
+# 	print("You haven't used any arguments.")
+# 	print("Either you're being lazy or don't know how to use them.")
+# 	print("For help, run '%s -?'" % (sys.argv[0]))
+# 	time.sleep(1)
+# 	print("Now onto a very lame default simulation...")
+# 	time.sleep(1)
 
 Delta			        = get_arg_val("-d")
 PARTICLE_COUNT	        = get_arg_val("-n")

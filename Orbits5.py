@@ -12,11 +12,11 @@ import matplotlib.pyplot as plt
 import simulation.sim_funcs
 from simulation.sim import Simulation
 from simulation.system import System, ClassicSystem
+import simulation.physics_functions
 from camera import Camera
 from controller import *
 from turtle_graphics import *
 from args_parser import *
-import simulation.physics_functions
 import loadSystem
 
 from simulation.physics_functions import GravityNewtonian
@@ -400,7 +400,7 @@ def simple_system():
     p4 = np.array([20, 0, 0], dtype=float)
     S = [0, 1, 2, 3]
     r  = np.array([1, 0.2, 0.01, 1])[S]
-    m = np.array([100, 10, 1, 100])[S]
+    m = np.array([100, 10, 1, 1])[S]
     Sys = ClassicSystem(pos=np.array([p1, p2, p3, p4])[S], vel=[[0., 0., 0.]], mass=m, radius=r)
     Sim = Simulation(Sys, FORCE_F, t_step=0.01, step_func=STEP_F, init_func=INIT_F)
 
