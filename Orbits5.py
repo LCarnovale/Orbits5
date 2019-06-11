@@ -1,9 +1,9 @@
 # from tkinter import *
 import time
 import loadSystem
-import sys
+# import sys
 # import os
-sys.path.append('./simulation/')
+# sys.path.append('./simulation/')
 import math
 
 import numpy as np
