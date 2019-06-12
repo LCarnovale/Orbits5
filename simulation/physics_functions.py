@@ -16,6 +16,10 @@ TRACKED_VALUE = None
 
 GRAVITATIONAL_CONSTANT = 1
 
+# Electric and Magnetic force constants
+kE = 1
+kB = 1
+
 def circularise(sys, A, B, f_func, axis):
     """
     A, B must be scalars!
@@ -84,11 +88,13 @@ def GravityNewtonian(sys):
 
     ### Calculate a tensor for r:
     # Tile the pos array:
-    POS_ALL = np.tile(sys.pos, (sys.N, 1, 1))
-    POS_S = np.tile(sys.pos, (1, 1, sys.N)).reshape(POS_ALL.shape)
+    # POS_ALL = np.tile(sys.pos, (sys.N, 1, 1))
+    # POS_S = np.tile(sys.pos, (1, 1, sys.N)).reshape(POS_ALL.shape)
 
-    D = POS_S - POS_ALL # r vector
-    D2 = np.linalg.norm(D, 2, axis=-1)**2 # D2 is now an N x N grid of distances (with 0 on diagonals)
+    dim = sys.dim
+    D = sys.pos.reshape(-1, 1, dim) - sys.pos.reshape(1, -1, dim)
+    D2 = np.linalg.norm(D, 2, axis=-1)**2 
+    # D2 is now an N x N grid of squared distances (with 0 on diagonals)
     M = sys.mass.reshape(1, -1)
     M_PROD = np.matmul(M.transpose(), M)
 
@@ -112,6 +118,44 @@ def GravityNewtonian(sys):
     F_VEC = F3 * D_norm # Now contains force vectors, F_VEC[i][j] = force between i and j
     F_NET = -np.sum(F_VEC, axis=1)
     # return {'force': F_NET}
+    return F_NET
+
+
+def LorentzForce(sys):
+    """
+    F = q (E + v x B)
+
+    E = kE q2 r / |r|^3 
+    B = kB q2 (v2 x r) / |r|^3
+
+    kE -> 1/(4 pi eps_0)
+    kB -> mu_0/(4 pi)
+    Requires charge and vel.
+    """
+
+    dim = sys.dim
+    D = sys.pos.reshape(-1, 1, dim) - sys.pos.reshape(1, -1, dim) # r vector
+    D3 = np.linalg.norm(D, 2, axis=-1)**3
+    # D3 is now an N x N grid of cubed distances (with 0 on diagonals)
+    VEL_REL = sys.vel.reshape(-1, 1, dim) - sys.vel.reshape(1, -1, dim)
+
+    Q = sys.charge.reshape(1, -1)
+    Q_PROD = np.matmul(Q.transpose(), Q)
+
+    D3_mask = (D3 > 0).reshape(-1, sys.N, 1)
+    qE  = np.divide(
+            kE * Q_PROD.reshape(sys.N, sys.N, 1) * D, 
+            D3.reshape(-1, sys.N, 1),
+            where=D3_mask, 
+    )
+    qvB = np.divide(
+            kB * Q_PROD.reshape(sys.N, sys.N, 1) * (np.cross(VEL_REL, D)), 
+            D3.reshape(-1, sys.N, 1),
+            where=D3_mask,
+    )
+
+    F = qE + qvB
+    F_NET = np.sum(F,axis=1)    
     return F_NET
 
 

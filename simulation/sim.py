@@ -227,7 +227,7 @@ or the buffer (sim.stored)""")
         self._sys = self._init_func(self._sys, self._func, self._t_step)
 
     def step(self, t_step = None, n=1, collisions=True, mode='every', set_delta=True,
-            pull_buffer=True, buffer_in_pause=False, ignore_pause=False):
+            pull_buffer=True, buffer_in_pause=False, ignore_pause=False, kill_nan=True):
         """
         If the sim is not paused,
         Calls self.func and performs a step.
@@ -286,7 +286,14 @@ or the buffer (sim.stored)""")
             # we can use it to set the tracked values, otherwise the
             # output will be a different shape to what the new mask will need.
             # out_mask = self._sys.active.copy()
-                    
+            if kill_nan:
+                try:
+                    nans = np.isnan(np.sum(self._sys.pos, axis=1))
+                    nans = np.logical_or(np.isnan(np.sum(self._sys.force, axis=1)), nans)
+                    if np.any(nans):
+                        self._sys.kill_particle(np.flatnonzero(nans))
+                except:
+                    pass
             if collisions and mode == 'every':
                 self.step_collisions()
 

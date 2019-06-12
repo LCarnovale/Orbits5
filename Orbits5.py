@@ -9,7 +9,8 @@ import math
 import numpy as np
 import turtle
 import matplotlib.pyplot as plt
-import simulation.sim_funcs
+import simulation.sim_funcs as sim_f
+import simulation.physics_functions as phys_f
 from simulation.sim import Simulation
 from simulation.system import System, ClassicSystem
 import simulation.physics_functions
@@ -193,6 +194,24 @@ def main():
         Sys = ClassicSystem(pos=pos, vel=[[0., 0., 0.]], mass=[1.], radius=[1.])
         Sys.vel += 2*(np.random.random((Sys.N, 3))/2 - 1)*4
         Sim = Simulation(Sys, FORCE_F, t_step=get_arg_val('-d'))
+
+    elif PRESET == "E":
+        track_delta = False
+        kwargs = {
+            'mass_props':(10, 0, 'normal'), 
+            'radius_props':(get_arg_val("-dr", 10), 0, 'uniform'), 
+            'particle_rad':(0.05, 0, 'normal'),
+            'vel':(0, 1, 'uniform'), 
+        }
+        disc1 = disc_sys(get_arg_val('-n', 15), **kwargs)
+        disc1.pos += [2 * get_arg_val("-dr", 10), 0, 0]
+        disc1.new_key('charge', 1, 1.)
+
+        # disc2 = disc_sys(get_arg_val('-n', 15), **kwargs)
+        # disc2.new_key('charge', 1, -1.)
+        # disc1 += disc2
+        F = phys_f.LorentzForce
+        Sim = Simulation(disc1, F, t_step=get_arg_val('-d'))
 
     else:
         print(f"Preset {PRESET} does not exist.")
