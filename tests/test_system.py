@@ -1,10 +1,6 @@
-# import sim
-import sys
-
 import numpy as np
 
-sys.path.append('simulation/')
-import system
+import simulation.system as system
 
 import pytest
 

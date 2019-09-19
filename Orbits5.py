@@ -6,24 +6,37 @@ import sys
 sys.path.append('./simulation/')
 import math
 
+
+# from simulation import physics_functions
+import simulation
+from simulation.sim import Simulation
+from simulation.system import System, ClassicSystem
+# from simulation.physics_functions import circularise
+from simulation.sim_funcs import  \
+    leapfrog_init, leapfrog_step, RK4_init, RK4_step, kill_bounce
+
+from simulation.physics_functions import GravityNewtonian, circularise
+FORCE_F = GravityNewtonian
+
+
+
+# import simulation.physics_functions
+# import simulation.sim_funcs
+# from simulation.sim import Simulation
+# from simulation.system import System, ClassicSystem
+
 import numpy as np
 import turtle
 import matplotlib.pyplot as plt
-import simulation.sim_funcs
-from simulation.sim import Simulation
-from simulation.system import System, ClassicSystem
 from camera import Camera
 from controller import *
 from turtle_graphics import *
 from args_parser import *
-import simulation.physics_functions
 import loadSystem
 
-from simulation.physics_functions import GravityNewtonian
-FORCE_F = GravityNewtonian
 
-from sim_funcs import leapfrog_init, leapfrog_step, RK4_init, RK4_step
-from sim_funcs import kill_bounce
+# from sim_funcs import leapfrog_init, leapfrog_step, RK4_init, RK4_step
+# from sim_funcs import kill_bounce
 mi = get_arg_val("-mi")
 if mi == 'leapfrog':
     INIT_F = leapfrog_init
@@ -34,7 +47,7 @@ elif mi == 'RK4':
 
 def main():
     print("Orbits5 Demonstration")
-    from sim import big_buffer
+    from simulation.sim import big_buffer
 
     simulation.physics_functions.GRAVITATIONAL_CONSTANT = get_arg_val('-G')
     track_delta = True
@@ -397,7 +410,6 @@ def simple_system():
     Sys = ClassicSystem(pos=np.array([p1, p2, p3, p4])[S], vel=[[0., 0., 0.]], mass=m, radius=r)
     Sim = Simulation(Sys, FORCE_F, t_step=0.01, step_func=STEP_F, init_func=INIT_F)
 
-    from physics_functions import circularise
     circularise(Sys, 1, 0, Sim.func, [0, 0, 1])
     circularise(Sys, 2, 1, Sim.func, [0, 0, 1])
 
@@ -406,7 +418,7 @@ def simple_system():
 
 def rings(t_step=0.0005):
     # from physics_functions import GravityNewtonian as FORCE_F
-    simulation.physics_functions.GRAVITATIONAL_CONSTANT = get_arg_val('-G')    
+    # simulation.physics_functions.GRAVITATIONAL_CONSTANT = get_arg_val('-G')    
     planet = [0., 0., 0.]; p_r = 10.
     moon   = [150., 0., 0.]; m_r = .5
     rand_angle = np.random.random(PARTICLE_COUNT) * np.pi * 2

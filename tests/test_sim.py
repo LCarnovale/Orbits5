@@ -1,7 +1,5 @@
-import sys
-sys.path.append('simulation/')
 
-import sim
+# import sim
 
 
 b = 2
